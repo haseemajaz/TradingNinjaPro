@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, CandlestickChart, Check, ChevronDown, CircleHelp, Download, Moon, ShieldCheck, Sun, X } from "lucide-react";
 import { createDemoAdapter } from "./adapter/demo.ts";
@@ -7,13 +7,20 @@ import { Terminal } from "./terminal/Terminal.tsx";
 import { safeStorage } from "./lib/safe-storage.ts";
 import { createNinjaLiveAdapter, type FeedHealth } from "./ninja-live.ts";
 import * as engine from "./services/demo/engine.ts";
+import { MarketEmbed } from "./NinjaMarketChart.tsx";
+import { NinjaDashboard, BackupControls } from "./NinjaDashboard.tsx";
+import { NinjaPlanner } from "./NinjaPlanner.tsx";
+import { ASSET_CATALOG, type Market, type View } from "./ninja-workspace.ts";
+import { startLocalSession, type LocalSession } from "./ninja-session.ts";
+import { useTradingStore } from "./services/store.tsx";
 
-type Market = "crypto" | "forex" | "metals" | "stocks";
-const CATEGORIES: { id: Market; name: string; detail: string }[] = [
+const CATEGORIES: { id: View; name: string; detail: string }[] = [
+  { id: "dashboard", name: "Dashboard", detail: "Your research desk" },
   { id: "crypto", name: "Crypto", detail: "Native terminal" },
   { id: "forex", name: "Forex", detail: "Embedded charts" },
   { id: "metals", name: "Gold & silver", detail: "Embedded charts" },
   { id: "stocks", name: "Stocks", detail: "Embedded charts" },
+  { id: "planner", name: "Strategy planner", detail: "Manual checklists" },
 ];
 const ASSETS = {
   forex: [["FX:EURUSD", "EUR / USD"], ["FX:GBPUSD", "GBP / USD"], ["FX:USDJPY", "USD / JPY"], ["FX:AUDUSD", "AUD / USD"], ["FX:USDCAD", "USD / CAD"], ["FX:USDCHF", "USD / CHF"]],
@@ -34,56 +41,6 @@ function downloadTrades() {
   link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function MarketEmbed({ symbol, dark }: { symbol: string; dark: boolean }) {
-  const host = useRef<HTMLDivElement>(null);
-  const [consent, setConsent] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [status, setStatus] = useState("Loading external chart…");
-  useEffect(() => {
-    if (!consent || !host.current) return;
-    const node = host.current;
-    const container = document.createElement("div");
-    container.className = "tradingview-widget-container";
-    container.style.height = "100%";
-    const widget = document.createElement("div");
-    widget.className = "tradingview-widget-container__widget";
-    widget.style.height = "100%";
-    container.append(widget);
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.async = true;
-    script.type = "text/javascript";
-    script.textContent = JSON.stringify({
-      autosize: true, symbol, interval: "60", timezone: "Etc/UTC", theme: dark ? "dark" : "light",
-      style: "1", locale: "en", allow_symbol_change: true, hide_side_toolbar: false,
-      calendar: false, support_host: "https://www.tradingview.com",
-    });
-    script.onerror = () => setStatus("Chart could not load. Check your connection or content blocker, then retry.");
-    container.append(script); node.append(container);
-    const observer = new MutationObserver(() => {
-      if (node.querySelector("iframe")) setStatus("Embedded chart · check the provider’s market-data status inside the chart");
-    });
-    observer.observe(node, { childList: true, subtree: true });
-    const timer = setTimeout(() => {
-      if (!node.querySelector("iframe")) setStatus("The external chart is taking longer than expected. Retry or open it on TradingView.");
-    }, 15_000);
-    return () => { clearTimeout(timer); observer.disconnect(); node.replaceChildren(); };
-  }, [symbol, dark, consent, attempt]);
-  return <>
-    <div className="tnp-embed-status"><span role="status">{consent ? status : "External chart not loaded"}</span>
-      {consent && <button onClick={() => { setStatus("Reloading external chart…"); setAttempt((n) => n + 1); }}>Retry chart</button>}
-    </div>
-    <div className="tnp-embed-body">
-      {!consent && <div className="tnp-consent"><CandlestickChart size={40} aria-hidden="true" /><h2>Your next market. One workspace.</h2>
-        <p>Load a TradingView chart for forex, precious metals or stocks. This contacts TradingView, which may use cookies or similar technology. Feed availability and delays vary by symbol.</p>
-        <button className="tnp-primary" onClick={() => { setStatus("Loading external chart…"); setConsent(true); }}>Load market chart <ArrowUpRight size={18} /></button>
-        <a href="https://www.tradingview.com/privacy-policy/" target="_blank" rel="noreferrer">TradingView privacy policy</a>
-      </div>}
-      <div className="tnp-embed-host" ref={host} hidden={!consent} />
-    </div>
-    <div className="tnp-widget-credit"><a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(symbol)}`} target="_blank" rel="noreferrer">Charts by TradingView ↗</a><span>Display only · not connected to our paper-trading engine</span></div>
-  </>;
-}
 
 function RiskCalculator({ close }: { close: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -107,9 +64,22 @@ function RiskCalculator({ close }: { close: () => void }) {
 }
 
 export function TradingNinjaPro() {
-  const [market, setMarket] = useState<Market>(() => {
-    const saved = safeStorage.getItem("tnp-market");
-    return CATEGORIES.some((c) => c.id === saved) ? saved as Market : "crypto";
+  const [session, setSession] = useState<LocalSession | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void startLocalSession(DEMO ? "demo" : "live").then((next) => { if (!cancelled) setSession(next); });
+    return () => { cancelled = true; };
+  }, []);
+  if (!session) return <div className="tnp-boot" role="status">Opening your local TradingNinjaPro workspace…</div>;
+  return <NinjaApp session={session} />;
+}
+
+function NinjaApp({ session }: { session: LocalSession }) {
+  const state = useSyncExternalStore(session.subscribe, session.getState);
+  const blocked = state.status === "blocked" || state.status === "busy";
+  const [view, setView] = useState<View>(() => {
+    const saved = safeStorage.getItem("tnp-v2-view");
+    return CATEGORIES.some((c) => c.id === saved) ? saved as View : "dashboard";
   });
   const [symbol, setSymbol] = useState("FX:EURUSD");
   const [dark, setDark] = useState(() => {
@@ -121,28 +91,32 @@ export function TradingNinjaPro() {
   const [copied, setCopied] = useState(false);
   const [health, setHealth] = useState<FeedHealth>("waiting");
   const [live] = useState(() => DEMO ? null : createNinjaLiveAdapter());
-  const [adapter] = useState(() => live?.adapter ?? createDemoAdapter());
+  const [adapter] = useState(() => session.wrapAdapter(live?.adapter ?? createDemoAdapter()));
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 5000 } } }));
   useEffect(() => {
     if (!live) return;
-    return live.onHealth((next) => {
-      setHealth(next);
-      if (next === "live") void queryClient.invalidateQueries();
-    });
+    return live.onHealth((next) => { setHealth(next); if (next === "live") void queryClient.invalidateQueries(); });
   }, [live, queryClient]);
   useEffect(() => {
     document.documentElement.classList.toggle("light", !dark);
     document.documentElement.classList.toggle("dark", dark);
     safeStorage.setItem("tnp-theme", dark ? "dark" : "light");
   }, [dark]);
-  const selectMarket = (next: Market) => {
-    setMarket(next); safeStorage.setItem("tnp-market", next);
-    if (next !== "crypto") setSymbol(ASSETS[next][0]![0]!);
+  const external = view === "forex" || view === "metals" || view === "stocks" ? view : null;
+  const selected = external ? ASSETS[external].find((a) => a[0] === symbol) ?? ASSETS[external][0]! : null;
+  const selectView = (next: View) => {
+    setView(next); safeStorage.setItem("tnp-v2-view", next);
+    if (next === "forex" || next === "metals" || next === "stocks") setSymbol(ASSETS[next][0]![0]!);
   };
-  const selected = market === "crypto" ? null : ASSETS[market].find((a) => a[0] === symbol) ?? ASSETS[market][0]!;
+  const openAsset = (id: string) => {
+    const asset = ASSET_CATALOG.find((a) => a.id === id); if (!asset) return;
+    setView(asset.market); safeStorage.setItem("tnp-v2-view", asset.market);
+    if (asset.market === "crypto") useTradingStore.getState().setSelectedSymbol(asset.id);
+    else setSymbol(asset.id);
+  };
   const healthLabel = { live: "Live quotes", waiting: "Connecting…", stale: "Stale · trading paused", reconnecting: "Reconnecting · trading paused", offline: "Offline · trading paused" }[health];
   const toggleMode = () => {
-    if (!window.confirm("Switch data mode and reset the practice account? Positions, orders and this session’s trade history will be lost. Drawings and journal entries remain in this browser.")) return;
+    if (!window.confirm("Switch data mode? Live and historical practice accounts are stored separately. Browser-local saves are not cloud sync. Stops and pending orders are evaluated only while this app receives ticks.")) return;
     const url = new URL(window.location.href);
     if (DEMO) url.searchParams.delete("mode"); else url.searchParams.set("mode", "demo");
     window.location.assign(url.href);
@@ -150,21 +124,26 @@ export function TradingNinjaPro() {
   return <div className="tnp" data-theme={dark ? "dark" : "light"}>
     <a href="#tnp-workspace" className="tnp-skip">Skip to workspace</a>
     <header className="tnp-header">
-      <a className="tnp-brand" href={import.meta.env.BASE_URL} aria-label="TradingNinjaPro home"><span className="tnp-mark" aria-hidden="true"><CandlestickChart size={25} /></span><span>TradingNinja<span className="tnp-pro">Pro</span><small>THE INDEPENDENT TRADER’S WORKSPACE</small></span></a>
+      <a className="tnp-brand" href={`${import.meta.env.BASE_URL}${DEMO ? "?mode=demo" : ""}`} onClick={(e) => { e.preventDefault(); selectView("dashboard"); }} aria-label="TradingNinjaPro home"><span className="tnp-mark" aria-hidden="true"><CandlestickChart size={25} /></span><span>TradingNinja<span className="tnp-pro">Pro</span><small>THE INDEPENDENT TRADER’S WORKSPACE</small></span></a>
       <div className="tnp-header-actions"><span className="tnp-practice"><ShieldCheck size={15} /> Paper trading only</span><button onClick={() => setRiskOpen(true)}>Risk calculator</button><button aria-label={dark ? "Use light theme" : "Use dark theme"} onClick={() => setDark((v) => !v)}>{dark ? <Sun size={19} /> : <Moon size={19} />}</button><button aria-label="About and data sources" aria-expanded={aboutOpen} onClick={() => setAboutOpen((v) => !v)}><CircleHelp size={19} /></button></div>
     </header>
-    <div className="tnp-marketbar"><nav aria-label="Market categories">{CATEGORIES.map((c) => <button key={c.id} aria-current={market === c.id ? "page" : undefined} onClick={() => selectMarket(c.id)}>{c.name}<span>{c.detail}</span></button>)}</nav><span className="tnp-version">WORKSPACE / 01</span></div>
-    {aboutOpen && <section className="tnp-about" aria-label="About TradingNinjaPro"><div><h2>Built for practice. Clear about the data.</h2><p>TradingNinjaPro is an independent fork of <a href="https://github.com/dylanpersonguy/OpenCharts" target="_blank" rel="noreferrer">OpenCharts</a>. No deposits, brokerage accounts or real-money execution. This is educational software, not investment advice.</p></div><div><h3>Know what you’re seeing</h3><p>Crypto: Binance spot USDT pairs (legacy terminal labels end in USD). Paper fills use the bid/ask midpoint; depth is synthetic, not an exchange order book. Account state resets on refresh. Drawings and journal entries use local browser storage; the upstream journal is account-ID scoped, so it is not a durable cross-session journal.</p><p>Embedded markets: provider-specific quotes; stocks may be delayed or unavailable. Do not assume any chart is execution-grade. Third-party charts are display-only and not a source for our order engine.</p><p>TradingView Lightweight Charts™ · Copyright (с) 2025 TradingView, Inc. <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">tradingview.com</a>. MIT and third-party notices are included with the source.</p></div></section>}
+    <div className="tnp-marketbar"><nav aria-label="Workspace navigation">{CATEGORIES.map((c) => <button key={c.id} aria-current={view === c.id ? "page" : undefined} onClick={() => selectView(c.id)}>{c.name}<span>{c.detail}</span></button>)}</nav><span className="tnp-version">V0.2</span></div>
+    {aboutOpen && <section className="tnp-about" aria-label="About TradingNinjaPro"><div><h2>Built for practice. Clear about the data.</h2><p>An independent fork of <a href="https://github.com/dylanpersonguy/OpenCharts" target="_blank" rel="noreferrer">OpenCharts</a>. No deposits, brokerage accounts or real-money execution. Educational software, not investment advice. Dashboard and planner workflows are original implementations—not copies of proprietary products.</p></div><div><h3>Know what you’re seeing</h3><p>Crypto: Binance spot USDT pairs (legacy native labels end in USD). Paper fills use the midpoint; the depth ladder is synthetic. Live candles and volume between history refreshes are approximations. Native replay is disabled in live mode to avoid mixing chart history with current practice execution.</p><p>Accounts, journal, watchlists and plans are browser-local, with separate live/demo saves. Use backup/restore to move them between domains or devices. Open positions initially show their entry mark after reload until fresh ticks arrive. Offline stops cannot execute; orders may fill at a gap on reconnection. No unattended trading or cloud sync.</p><p>Forex, metals, equities and all multi-chart embeds are display-only. Quotes and delays depend on the provider. The manual strategy planner does not evaluate signals or backtest. The crypto scanner uses completed 1-hour candles, not an executable signal.</p><p>TradingView Lightweight Charts™ · Copyright (с) 2025 TradingView, Inc. <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">tradingview.com</a>. Licence notices are included in the deployment.</p></div></section>}
     <main id="tnp-workspace" className="tnp-main" tabIndex={-1}>
-      <div className="tnp-sourcebar"><div><span className={`tnp-status ${market === "crypto" && !DEMO && health === "live" ? "is-live" : ""}`} />{market === "crypto" ? <><strong>{DEMO ? "Historical replay" : "Binance spot"}</strong><span>{DEMO ? "Not live · simulated stream" : healthLabel}</span></> : <><strong>TradingView embed</strong><span>Provider-dependent data & delays · display only</span></>}</div><button onClick={market === "crypto" ? toggleMode : () => setAboutOpen((v) => !v)}>{market === "crypto" ? DEMO ? "Switch to live" : "Use offline demo" : "Data details"}<ChevronDown size={14} /></button></div>
-      <section className="tnp-native" hidden={market !== "crypto"} aria-label="Crypto practice terminal">
-        <div className="tnp-session-note"><span>Practice account · refresh resets account state · USDT quoted markets</span><button onClick={() => { downloadTrades(); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? <Check size={14} /> : <Download size={14} />}{copied ? "CSV downloaded" : "Export closed trades"}</button></div>
-        <div className="tnp-terminal"><OpenChartsProvider adapter={adapter} queryClient={queryClient} fallback={<div className="tnp-loading">Preparing your TradingNinjaPro workspace…</div>}><Terminal /></OpenChartsProvider></div>
-        {!DEMO && health !== "live" && <div className="tnp-feed-notice" role="status">Waiting for fresh market quotes. Your region or network may restrict Binance. New paper orders and position closes require a fresh quote; automatic stops cannot execute while offline. <button onClick={toggleMode}>Try the clearly labelled historical demo</button></div>}
-      </section>
-      {market !== "crypto" && <section className="tnp-external" aria-label={`${market} charts`}><div className="tnp-instruments"><div><span className="tnp-eyebrow">EXPLORE MARKETS</span><h1>{market === "metals" ? "Precious metals" : market === "stocks" ? "US equities" : "Foreign exchange"}</h1></div><label>Instrument<select value={selected![0]} onChange={(e) => setSymbol(e.target.value)}>{ASSETS[market].map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label><p>Use the embedded chart’s symbol search to explore additional instruments. Availability varies by provider.</p><div className="tnp-display-note"><ShieldCheck size={18} /><span><b>Analysis, not execution.</b> These charts are not connected to the practice account.</span></div><button onClick={() => setRiskOpen(true)}>Plan a position <ArrowUpRight size={16} /></button></div><div className="tnp-chart-card"><MarketEmbed symbol={selected![0]!} dark={dark} /></div></section>}
+      <div className="tnp-sourcebar"><div><span className={`tnp-status ${view === "crypto" && !DEMO && health === "live" ? "is-live" : ""}`} />{view === "crypto" ? <><strong>{DEMO ? "Historical replay" : "Binance spot"}</strong><span>{DEMO ? "Not live · simulated stream" : healthLabel}</span></> : external ? <><strong>TradingView embed</strong><span>Provider-dependent data & delays · display only</span></> : <><strong>{view === "planner" ? "Manual strategy planner" : "Research workspace"}</strong><span>{DEMO ? "Historical practice mode · not live" : "Live-data practice mode"} · {state.status === "ready" ? "local save enabled" : state.status}</span></>}</div><button onClick={toggleMode}>{DEMO ? "Switch to live" : "Use historical demo"}<ChevronDown size={14} /></button></div>
+      {state.status === "memory-only" && <div className="tnp-storage-warning" role="alert">{state.message}</div>}
+      {blocked ? <section className="tnp-recovery"><h1>Local account unavailable</h1><p role="alert">{state.message}</p><button onClick={() => window.location.reload()}>Reload this tab</button><BackupControls session={session} state={state} /></section> : <>
+        {view === "dashboard" && <NinjaDashboard session={session} state={state} dark={dark} adapter={adapter} demo={DEMO} health={health} onOpen={openAsset} onPlanner={() => selectView("planner")} />}
+        {view === "planner" && <NinjaPlanner workspace={state.workspace} onUpdate={session.updateWorkspace} onOpen={openAsset} />}
+        <section className="tnp-native" hidden={view !== "crypto"} aria-label="Crypto practice terminal">
+          <div className="tnp-session-note"><span>{DEMO ? "Historical" : "Live-data"} practice account · {state.status === "ready" ? "saved on this browser" : "temporary session"} · USDT quoted markets</span><button onClick={() => { downloadTrades(); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? <Check size={14} /> : <Download size={14} />}{copied ? "CSV downloaded" : "Export closed trades"}</button></div>
+          <div className="tnp-terminal"><OpenChartsProvider adapter={adapter} queryClient={queryClient} fallback={<div className="tnp-loading">Preparing your TradingNinjaPro workspace…</div>}><Terminal /></OpenChartsProvider></div>
+          {!DEMO && health !== "live" && <div className="tnp-feed-notice" role="status">Waiting for fresh quotes. New paper orders and manual closes are paused. Automatic stops cannot execute offline. Provider access restrictions may apply. <button onClick={toggleMode}>Use historical demo instead</button></div>}
+        </section>
+        {external && <section className="tnp-external" aria-label={`${external} charts`}><div className="tnp-instruments"><div><span className="tnp-eyebrow">EXPLORE MARKETS</span><h1>{external === "metals" ? "Precious metals" : external === "stocks" ? "US equities" : "Foreign exchange"}</h1></div><label>Instrument<select value={selected![0]} onChange={(e) => setSymbol(e.target.value)}>{ASSETS[external].map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label><p>Use the embedded chart’s symbol search to explore additional instruments. Availability varies by provider.</p><div className="tnp-display-note"><ShieldCheck size={18} /><span><b>Analysis, not execution.</b> These charts are not connected to the practice account.</span></div><button onClick={() => setRiskOpen(true)}>Plan a position <ArrowUpRight size={16} /></button></div><div className="tnp-chart-card"><MarketEmbed symbol={selected![0]!} dark={dark} /></div></section>}
+      </>}
     </main>
-    <footer className="tnp-footer"><span>Independent by design. Disciplined by practice.</span><span>Built on <a href="https://github.com/dylanpersonguy/OpenCharts" target="_blank" rel="noreferrer">OpenCharts</a> · <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView Lightweight Charts™</a></span></footer>
+    <footer className="tnp-footer"><span>Independent by design. Disciplined by practice. · v0.2</span><span>Built on <a href="https://github.com/dylanpersonguy/OpenCharts" target="_blank" rel="noreferrer">OpenCharts</a> · <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView Lightweight Charts™</a></span></footer>
     {riskOpen && <RiskCalculator close={() => setRiskOpen(false)} />}
   </div>;
 }
