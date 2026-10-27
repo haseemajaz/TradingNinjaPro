@@ -1,7 +1,7 @@
 {
-  "name": "@dylanpersonguy/opencharts",
-  "version": "0.3.0",
-  "description": "Open-source trading terminal: advanced charting, drawing tools and a built-in paper-trading engine, with no backend required.",
+  "name": "tradingninjapro",
+  "version": "0.2.0",
+  "description": "TradingNinjaPro: local paper accounts, multi-market dashboards and manual strategy planning.",
   "keywords": [
     "trading",
     "charting",
@@ -16,11 +16,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dylanpersonguy/OpenCharts.git"
+    "url": "https://github.com/haseemajaz/TradingNinjaPro.git"
   },
-  "homepage": "https://github.com/dylanpersonguy/OpenCharts#readme",
+  "homepage": "https://github.com/haseemajaz/TradingNinjaPro#readme",
   "bugs": {
-    "url": "https://github.com/dylanpersonguy/OpenCharts/issues"
+    "url": "https://github.com/haseemajaz/TradingNinjaPro/issues"
   },
   "type": "module",
   "engines": {
@@ -116,5 +116,6 @@
     "vite": "^6.0.0",
     "vite-plugin-dts": "^5.1.1",
     "vitest": "^2.1.9"
-  }
+  },
+  "private": true
 }
