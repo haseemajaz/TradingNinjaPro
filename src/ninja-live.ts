@@ -150,7 +150,11 @@ export function createNinjaLiveAdapter(options: LiveOptions = {}) {
         watchdog = setInterval(() => {
           if (Date.now() - lastMessage > STALE_MS) {
             setHealth("stale");
-            if (socket) socket.close();
+            // Detach before close: an offline socket may otherwise remain in
+            // CLOSING indefinitely. Late events cannot affect the next session.
+            const old = socket; socket = null;
+            old?.close();
+            schedule();
           }
         }, 5000);
       },
