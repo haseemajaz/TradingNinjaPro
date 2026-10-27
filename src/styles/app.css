@@ -146,3 +146,91 @@ body {
 /* External-widget headers must never shrink beneath wrapped text on mobile. */
 .tnp-embed-status, .tnp-widget-credit { flex-shrink: 0; }
 .tnp-embed-status > span { min-width: 0; }
+
+/* v0.2 research dashboard, local account and manual strategy planner. */
+.tnp-boot { padding: 32px; font: 16px/1.5 system-ui, sans-serif; }
+.tnp-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.tnp button:disabled { cursor: not-allowed; opacity: .55; }
+.tnp-marketbar button { min-width: 112px; }
+.tnp-marketbar button span { font-size: 13px; }
+.tnp-dashboard, .tnp-planner { width: 100%; max-width: 1480px; margin: 0 auto; padding: 32px 24px 48px; display: flex; flex-direction: column; gap: 24px; }
+.tnp-workspace-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; padding: 8px 0 16px; }
+.tnp-workspace-intro h1 { font-size: 36px; line-height: 1.15; letter-spacing: -1.2px; margin: 12px 0 16px; }
+.tnp-workspace-intro p { font-size: 16px; color: var(--n-muted); margin: 0; max-width: 64ch; }
+.tnp-workspace-intro > button { flex-shrink: 0; }
+.tnp-account-cards { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); border: 1px solid var(--n-line); border-radius: 12px; background: var(--n-panel); }
+.tnp-account-cards > div { padding: 24px; display: flex; flex-direction: column; gap: 4px; }
+.tnp-account-cards > div + div { border-left: 1px solid var(--n-line); }
+.tnp-account-cards span, .tnp-account-cards small { color: var(--n-muted); font-size: 14px; }
+.tnp-account-cards strong { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tnp-panel { background: var(--n-panel); border: 1px solid var(--n-line); border-radius: 12px; padding: 24px; min-width: 0; }
+.tnp-panel h2 { margin: 4px 0 8px; }
+.tnp-panel > p { color: var(--n-muted); max-width: 90ch; }
+.tnp-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.tnp-section-heading > span { color: var(--n-muted); }
+.tnp-inline-actions { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.tnp label { min-width: 0; }
+.tnp-inline-actions label { display: flex; flex-direction: column; gap: 6px; min-width: 170px; }
+.tnp-inline-actions > span { align-self: center; color: var(--n-muted); }
+.tnp input[type="search"] { max-width: 320px; }
+.tnp-list-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--n-line); }
+.tnp-list-tabs button[aria-pressed="true"], .tnp-saved-plan[aria-pressed="true"] { background: var(--n-soft); border-color: var(--n-accent); color: var(--n-accent); }
+.tnp-list-tabs button span { font-size: 13px; min-width: 24px; border-left: 1px solid var(--n-line); padding-left: 8px; }
+.tnp-table-scroll { position: relative; max-width: 100%; overflow-x: auto; }
+.tnp table { border-collapse: collapse; width: 100%; text-align: left; font-size: 14px; }
+.tnp th { color: var(--n-muted); font-weight: 550; background: var(--n-soft); }
+.tnp td, .tnp th { padding: 12px 16px; border-bottom: 1px solid var(--n-line); vertical-align: middle; }
+.tnp td small { display: block; color: var(--n-muted); margin-top: 4px; font-size: 13px; }
+.tnp td button { white-space: nowrap; }
+.tnp-empty { padding: 24px 16px; color: var(--n-muted); font-size: 14px; }
+.tnp-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; }
+.tnp-chart-grid.tnp-charts-1 { grid-template-columns: 1fr; }
+.tnp-grid-chart { min-width: 0; }
+.tnp-grid-chart > label { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-weight: 600; }
+.tnp-grid-chart > label select { flex: 1; }
+.tnp-grid-chart .tnp-chart-card { height: 580px; }
+.tnp-grid-chart .tnp-consent h2 { font-size: 25px; }
+.tnp-grid-chart .tnp-consent p { font-size: 14px; }
+.tnp-grid-chart .tnp-embed-body { min-height: 400px; }
+.tnp-grid-chart .tnp-consent { min-height: 400px; }
+.tnp-grid-chart .tnp-widget-credit { font-size: 13px; }
+.tnp-backups > p { color: var(--n-muted); font-size: 14px; max-width: 85ch; }
+.tnp-storage-warning { background: var(--n-soft); padding: 12px 24px; border-bottom: 1px solid var(--n-line); }
+.tnp-recovery { padding: 40px 24px; max-width: 900px; margin: 0 auto; }
+.tnp-recovery h1 { margin-bottom: 20px; }
+.tnp-plan-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 24px; align-items: start; }
+.tnp-plan-layout aside { position: sticky; top: 0; }
+.tnp .tnp-saved-plan { display: flex; width: 100%; flex-direction: column; align-items: flex-start; text-align: left; gap: 4px; margin: 12px 0; overflow-wrap: anywhere; }
+.tnp-saved-plan span { font-size: 13px; color: var(--n-muted); }
+.tnp-form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 20px 0; }
+.tnp-form-grid label, .tnp-plan-editor > label { display: flex; flex-direction: column; gap: 8px; }
+.tnp-three-fields { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.tnp textarea { width: 100%; font: inherit; color: inherit; border: 1px solid var(--n-line); border-radius: 8px; padding: 12px; background: var(--n-bg); resize: vertical; min-height: 110px; }
+.tnp fieldset { border: 1px solid var(--n-line); border-radius: 8px; padding: 16px; margin: 24px 0; }
+.tnp legend { padding: 0 8px; font-weight: 600; }
+.tnp-condition-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+.tnp label.tnp-checkbox { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; min-height: 44px; }
+.tnp .tnp-checkbox input { width: 20px; height: 20px; min-height: 20px; margin: 1px 0 0; padding: 0; flex-shrink: 0; accent-color: #124fa6; }
+.tnp-plan-verdict { padding: 16px; background: var(--n-soft); border-left: 3px solid var(--n-accent); }
+@media (max-width: 1100px) { .tnp-marketbar { padding: 0 16px; } .tnp-marketbar button { min-width: 95px; padding: 12px; font-size: 14px; } .tnp-version { display: none; } .tnp-marketbar button span { font-size: 12px; } .tnp-three-fields { grid-template-columns: 1fr; } .tnp-plan-layout { grid-template-columns: 220px minmax(0,1fr); } }
+@media (max-width: 800px) { .tnp-chart-grid { grid-template-columns: 1fr; } .tnp-workspace-intro { flex-direction: column; align-items: flex-start; gap: 20px; } .tnp-marketbar button span { display: none; } .tnp-marketbar nav { width: 100%; justify-content: space-between; } .tnp-marketbar button { min-width: 0; } .tnp-plan-layout { grid-template-columns: 1fr; } .tnp-plan-layout aside { position: static; } }
+@media (max-width: 640px) {
+  .tnp-marketbar { padding: 0; }
+  .tnp-marketbar nav { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .tnp-marketbar button { width: 100%; font-size: 14px; padding: 10px 4px; }
+  .tnp-dashboard, .tnp-planner { padding: 24px 16px 40px; gap: 20px; }
+  .tnp-workspace-intro h1 { font-size: 30px; }
+  .tnp-account-cards { grid-template-columns: 1fr; }
+  .tnp-account-cards > div { padding: 16px 20px; }
+  .tnp-account-cards > div + div { border-left: 0; border-top: 1px solid var(--n-line); }
+  .tnp-account-cards strong { font-size: 26px; }
+  .tnp-panel { padding: 20px 16px; }
+  .tnp-section-heading { align-items: flex-start; flex-wrap: wrap; }
+  .tnp-panel h2 { font-size: 22px; }
+  .tnp-inline-actions label { min-width: 0; width: 100%; }
+  .tnp-inline-actions input, .tnp input[type="search"] { max-width: none; }
+  .tnp-form-grid, .tnp-condition-grid { grid-template-columns: 1fr; }
+  .tnp fieldset { padding: 12px; }
+  .tnp-grid-chart .tnp-chart-card { height: 650px; }
+  .tnp-grid-chart .tnp-consent { padding: 24px 16px; }
+}
