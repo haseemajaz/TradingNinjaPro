@@ -143,3 +143,6 @@ body {
   .tnp-risk-fields { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .tnp *, .tnp *::before, .tnp *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+/* External-widget headers must never shrink beneath wrapped text on mobile. */
+.tnp-embed-status, .tnp-widget-credit { flex-shrink: 0; }
+.tnp-embed-status > span { min-width: 0; }
