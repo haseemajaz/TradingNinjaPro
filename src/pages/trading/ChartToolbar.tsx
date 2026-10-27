@@ -1,3 +1,4 @@
+import { getAdapter } from "../../adapter/registry.ts";
 import {
   Activity,
   AlignCenter,
@@ -306,7 +307,7 @@ export function ChartToolbar({
       </div>
 
       {/* Session replay controls — disabled until the feature is QA'd */}
-      {REPLAY_ENABLED && replayAccountId != null && <ReplayHUD accountId={replayAccountId} />}
+      {REPLAY_ENABLED && !getAdapter().name?.includes("TradingNinjaPro live") && replayAccountId != null && <ReplayHUD accountId={replayAccountId} />}
 
       {/* Chart layout templates (save/load/autosave) */}
       {onSetIndicators && onSetPlugins && (
