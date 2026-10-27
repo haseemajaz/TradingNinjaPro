@@ -1,3 +1,47 @@
+# TradingNinjaPro
+
+An independent, branded fork of [OpenCharts](https://github.com/dylanpersonguy/OpenCharts).
+
+## TradingNinjaPro v0.1
+
+- Branded responsive workspace with light/dark theme, local preference storage and accessible controls.
+- Crypto: six Binance spot USDT pairs, public live bid/ask feed, historical candles, native drawing tools and paper trading. No API key and no real order routing.
+- Forex, gold/silver and US stocks: opt-in TradingView embeds. These are display-only, provider-dependent and may be delayed or unavailable. They do not feed the paper-trading engine.
+- Feed watchdog, reconnect backoff, malformed-quote checks and stale-quote guards for new orders and manual closes. No silent fallback from live prices to replay data.
+- Manual historical replay mode at `?mode=demo`; explicitly labelled **not live**.
+- Linear-instrument risk calculator, closed-trade CSV export and source/data disclosures.
+
+### Run and build
+
+```sh
+npm ci
+npm run dev
+npm run typecheck
+npm run lint -- --max-warnings=0
+npm test
+npm run build
+```
+
+Production files are in `dist/`. See [DEPLOY_20I.md](DEPLOY_20I.md) for shared-hosting instructions.
+
+### Data and simulation limitations
+
+Paper accounts start at $100,000 with the upstream simulation rules. Account balances, positions, orders and closed trade history are memory-only and **reset on refresh**; export closed trades before leaving. Drawings/preferences are browser-local. The upstream journal is stored locally but scoped to a generated account ID, so it is not a durable cross-session journal. Cloud accounts and durable account storage are not implemented in v0.1.
+
+Legacy crypto symbols ending in USD map to Binance USDT pairs, not USD spot markets. Paper fills use the bid/ask midpoint, not real exchange matching. The native depth ladder is synthetic; tick-driven live candles/volume are approximations between historical refreshes. Stops cannot execute while the browser is closed, suspended or disconnected; reconnects can gap. This is not execution-grade infrastructure. No deposits or real-money trading.
+
+Binance may be inaccessible in some regions and imposes limits. Do not circumvent access restrictions. Confirm provider display/commercial terms for your audience before public launch. TradingView widget branding and chart attribution must remain visible. Free widgets do not grant access to raw data or unlimited exchange rights.
+
+### Licensing and provenance
+
+The original MIT `LICENSE` and `NOTICE` are preserved. TradingView Lightweight Charts and adapted plugins retain their Apache-2.0 obligations and on-chart attribution. This fork is not affiliated with TradingView or Binance. The library package identity remains upstream for compatibility and is **not** intended to be republished under the original npm namespace.
+
+---
+
+## Upstream documentation (original project)
+
+The following describes upstream OpenCharts, not every modification or data mode in TradingNinjaPro. The sections above take precedence for this fork.
+
 <div align="center">
 
 # 📈 OpenCharts
