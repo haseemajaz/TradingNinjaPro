@@ -1,3 +1,16 @@
+# TradingNinjaPro v0.2.0
+
+- Added a research dashboard, eight named watchlists and saved multi-chart layouts.
+- Added mode-isolated local practice accounts, stable journal identity, schema-validated JSON backup/restore and Web Locks single-writer protection.
+- Added a manual strategy checklist planner and bounded crypto technical snapshot scanning.
+- Kept forex, gold/silver, equities and dashboard embeds display-only, with provider-dependent data labels.
+- Disabled native chart-session replay controls in live mode to avoid mixing historical chart replay and current practice execution.
+- Added persistence, invalid-import, mode-isolation and workspace-validation tests; documented local-origin migration to 20i.
+
+---
+
+## Upstream changelog
+
 # Changelog
 
 All notable changes to this project are documented here. The format follows
