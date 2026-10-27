@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { AccountSchema, ClosedPositionSchema, FillSchema, OrderSchema, PositionSchema } from "../schemas.ts";
 import { uid } from "../../lib/uid.ts";
 import type { Account, ClosedPosition, Fill, Order, Position, Symbol } from "../schemas.ts";
 import { DEMO_CHANNELS, publish } from "./bus.ts";
@@ -691,3 +693,71 @@ export function __resetForTests(): void {
   account.margin = 0;
   account.freeMargin = STARTING_BALANCE;
 }
+
+
+// Versioned local practice-account snapshots. Prices are deliberately NOT restored:
+// a reopened live account must wait for new provider ticks before trading.
+const SnapshotSchema = z.object({
+  version: z.literal(1),
+  account: AccountSchema.extend({ id: z.string().min(1).max(100), balance: z.number().finite().min(-1e12).max(1e12) }),
+  positions: z.array(PositionSchema).max(5000),
+  orders: z.array(OrderSchema).max(5000),
+  closed: z.array(ClosedPositionSchema).max(5000),
+  fills: z.array(FillSchema).max(10000),
+});
+export type PaperSnapshot = z.infer<typeof SnapshotSchema>;
+
+export function parsePaperSnapshot(input: unknown): PaperSnapshot {
+  const value = SnapshotSchema.parse(input);
+  function finiteTree(node: unknown): void {
+    if (typeof node === "number" && !Number.isFinite(node)) throw new Error("Snapshot contains a non-finite number.");
+    if (typeof node === "string" && node.length > 20000) throw new Error("Snapshot text is too large.");
+    if (node && typeof node === "object") Object.values(node).forEach(finiteTree);
+  }
+  finiteTree(value);
+  for (const records of [value.positions, value.orders, value.closed, value.fills]) {
+    const ids = new Set<string>();
+    for (const record of records) {
+      if (ids.has(record.id) || !record.id) throw new Error("Duplicate or missing record ID.");
+      ids.add(record.id);
+      if (record.accountId && record.accountId !== value.account.id) throw new Error("Snapshot account IDs do not match.");
+      requireSymbol(record.symbolName);
+      requireQuantity(record.quantity);
+      if ("entryPrice" in record) requirePrice(record.entryPrice, "Entry price");
+      if ("exitPrice" in record) requirePrice(record.exitPrice, "Exit price");
+      if ("takeProfit" in record && record.takeProfit != null) requirePrice(record.takeProfit, "Take-profit");
+      if ("stopLoss" in record && record.stopLoss != null) requirePrice(record.stopLoss, "Stop-loss");
+    }
+  }
+  for (const order of value.orders) {
+    if (!["PENDING", "FILLED", "CANCELED", "REJECTED"].includes(order.status)) throw new Error("Unknown order status.");
+    if (order.type === "LIMIT") requirePrice(order.price ?? undefined, "Limit price");
+    if (order.type === "STOP") requirePrice(order.stopPrice ?? undefined, "Stop price");
+  }
+  for (const fill of value.fills) requirePrice(fill.price, "Fill price");
+  return value;
+}
+
+export function exportPaperSnapshot(): PaperSnapshot {
+  return JSON.parse(JSON.stringify({ version: 1, account, positions, orders, closed, fills })) as PaperSnapshot;
+}
+
+export function restorePaperSnapshot(input: unknown): void {
+  // Complete validation happens before the first mutation, so failed imports
+  // cannot partially replace an account.
+  const next = parsePaperSnapshot(input);
+  Object.assign(account, next.account);
+  positions.splice(0, positions.length, ...next.positions.map((p) => ({
+    ...p, currentPrice: p.entryPrice, unrealizedPnl: 0,
+    margin: money(marginFor(p.symbolName, p.quantity, p.entryPrice)),
+    contractSize: getDemoSymbol(p.symbolName)?.contractSize ?? 1,
+  })));
+  orders.splice(0, orders.length, ...next.orders);
+  closed.splice(0, closed.length, ...next.closed);
+  fills.splice(0, fills.length, ...next.fills);
+  lastPrice.clear();
+  recomputeEquity();
+}
+
+/** Explicit financial-account reset; journal and workspace are managed separately. */
+export function resetPaperAccount(): void { __resetForTests(); }
