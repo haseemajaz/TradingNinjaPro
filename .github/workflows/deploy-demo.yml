@@ -1,7 +1,4 @@
-name: Deploy demo
-
-# Publishes the terminal to GitHub Pages so the README can link a live demo.
-# Requires Pages to be enabled once, in Settings → Pages → Source: GitHub Actions.
+name: Publish TradingNinjaPro
 
 on:
   push:
@@ -13,41 +10,45 @@ permissions:
   pages: write
   id-token: write
 
-# Never run two deploys at once; let an in-flight one finish rather than
-# cancelling it half-published.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build demo
+    name: Verify and build v0.2
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-
       - run: npm ci
-
-      # BASE_PATH makes asset URLs resolve under /<repo>/ on project Pages.
-      - name: Build
+      - run: npm run typecheck
+      - run: npm run lint -- --max-warnings=0
+      - run: npm test
+      - name: Build project Pages site
         run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-
+      - run: npm run check:size
       - uses: actions/configure-pages@v5
-
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
-
+      - name: Build root-path 20i package
+        run: npm run build && cd dist && zip -qr ../TradingNinjaPro-20i-website.zip .
+        env:
+          BASE_PATH: /
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TradingNinjaPro-20i-website
+          path: TradingNinjaPro-20i-website.zip
+          retention-days: 14
   deploy:
-    name: Deploy to Pages
+    name: Publish live preview
     needs: build
     runs-on: ubuntu-latest
     environment:
