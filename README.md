@@ -1,17 +1,22 @@
-# TradingNinjaPro
+# TradingNinjaPro v0.2
 
-An independent, branded fork of [OpenCharts](https://github.com/dylanpersonguy/OpenCharts).
+An independent, self-hosted charting and practice workspace built on [OpenCharts](https://github.com/dylanpersonguy/OpenCharts). No deposits, brokerage credentials or real-money execution.
 
-## TradingNinjaPro v0.1
+## What's new
 
-- Branded responsive workspace with light/dark theme, local preference storage and accessible controls.
-- Crypto: six Binance spot USDT pairs, public live bid/ask feed, historical candles, native drawing tools and paper trading. No API key and no real order routing.
-- Forex, gold/silver and US stocks: opt-in TradingView embeds. These are display-only, provider-dependent and may be delayed or unavailable. They do not feed the paper-trading engine.
-- Feed watchdog, reconnect backoff, malformed-quote checks and stale-quote guards for new orders and manual closes. No silent fallback from live prices to replay data.
-- Manual historical replay mode at `?mode=demo`; explicitly labelled **not live**.
-- Linear-instrument risk calculator, closed-trade CSV export and source/data disclosures.
+- **Research dashboard:** up to eight named watchlists, instrument search, favourites and direct navigation to market workspaces.
+- **Multi-chart desk:** saved one-, two- or four-chart layouts using opt-in TradingView embeds. Charts are independent, not synchronised, and display-only.
+- **Local practice accounts:** stable account IDs, saved balances, positions, pending orders, fills and closed history. Live and historical-demo accounts use separate saves.
+- **Durable local journal:** journal entries stay attached to the saved account across reloads.
+- **Validated backup/restore:** account, journal, watchlists, chart selections and strategy plans in a versioned JSON backup. Invalid or wrong-mode imports are rejected before account replacement.
+- **Cross-tab protection:** Web Locks allow one writer per origin and data mode. A second tab is blocked from opening that practice account. Browsers without locking use an explicitly temporary session, without automatic shared saves.
+- **Manual strategy planner:** save indicator-rule checklists, timeframe, direction, planning risk/stop/target constraints, review confirmations and notes. Export plans as JSON. No rule execution, AI predictions or backtesting.
+- **Crypto technical snapshot:** a manual scan of six pairs using completed 1-hour candles, RSI 14 and SMA 20, with filters and provider errors kept visible. At least one minute between scans. Not a trading recommendation.
+- Branded light/dark responsive UI, native risk calculator, closed-trade CSV export, explicit feed labels and stale-quote safeguards.
 
-### Run and build
+## Run, test and build
+
+Requires Node.js 20+ (CI uses Node.js 22).
 
 ```sh
 npm ci
@@ -22,19 +27,29 @@ npm test
 npm run build
 ```
 
-Production files are in `dist/`. See [DEPLOY_20I.md](DEPLOY_20I.md) for shared-hosting instructions.
+`dist/` is the static website. See [DEPLOY_20I.md](DEPLOY_20I.md). The application package is private to prevent accidental npm publication; upstream package-import examples below retain their original names for reference.
 
-### Data and simulation limitations
+## Data modes
 
-Paper accounts start at $100,000 with the upstream simulation rules. Account balances, positions, orders and closed trade history are memory-only and **reset on refresh**; export closed trades before leaving. Drawings/preferences are browser-local. The upstream journal is stored locally but scoped to a generated account ID, so it is not a durable cross-session journal. Cloud accounts and durable account storage are not implemented in v0.1.
+The default native crypto terminal uses public Binance market-data endpoints, without an API key. Six legacy native symbols ending in USD map to **USDT** spot pairs. Paper fills use the bid/ask midpoint, not real exchange matching; the depth ladder is synthetic, and tick-derived current candles/volume are approximations between history refreshes. Region restrictions and provider limits apply; do not circumvent them.
 
-Legacy crypto symbols ending in USD map to Binance USDT pairs, not USD spot markets. Paper fills use the bid/ask midpoint, not real exchange matching. The native depth ladder is synthetic; tick-driven live candles/volume are approximations between historical refreshes. Stops cannot execute while the browser is closed, suspended or disconnected; reconnects can gap. This is not execution-grade infrastructure. No deposits or real-money trading.
+`?mode=demo` selects a separate historical replay account, clearly marked **not live**. Switching modes does not merge accounts. Native chart-session replay controls are hidden in live mode so historical chart replay is not confused with current paper execution.
 
-Binance may be inaccessible in some regions and imposes limits. Do not circumvent access restrictions. Confirm provider display/commercial terms for your audience before public launch. TradingView widget branding and chart attribution must remain visible. Free widgets do not grant access to raw data or unlimited exchange rights.
+Forex, precious metals and US stocks use third-party TradingView embeds. Data and delays depend on the selected provider/exchange; availability is not guaranteed. All multi-chart embeds—including crypto—are display-only, never a raw-price source for our order engine or scanner. Branding and attribution must remain visible. Review provider commercial-display terms and your privacy/cookie policy before production launch.
 
-### Licensing and provenance
+## Storage, backups and risk limitations
 
-The original MIT `LICENSE` and `NOTICE` are preserved. TradingView Lightweight Charts and adapted plugins retain their Apache-2.0 obligations and on-chart attribution. This fork is not affiliated with TradingView or Binance. The library package identity remains upstream for compatibility and is **not** intended to be republished under the original npm namespace.
+- Browser-local data is not a login, server account or cloud sync. Clearing site data or changing origin (domain/subdomain/protocol) loses access to that origin's saves. Export before moving from the GitHub Pages preview to your 20i domain.
+- Backups include private notes and simulated financial history. Keep them private; never commit them to the public repository.
+- Backups exclude chart drawings, theme, native chart preferences and third-party widget state. The old v0.1 account-scoped journal is not automatically migrated.
+- Backup imports are capped at 4 MB. Account arrays and planner/list counts are bounded. Full or blocked browser storage is reported; export before history grows too large and reset financial history when needed.
+- Restored positions are initially marked at entry, and quotes are never restored. Fresh provider ticks are required. Stops and pending orders do not run while the browser is closed, suspended or disconnected. They may trigger at a gap when ticks resume; no offline fills are invented.
+- Local files are editable and not tamper-proof. Never use this account state as proof of trading performance or as a basis for payouts.
+- The planner is a manual checklist. Input bounds are not risk recommendations. No strategy is claimed profitable. No broker connection, automatic execution, AI service, fundamentals feed or full-market stock scanner is included.
+
+## Licensing
+
+Original MIT `LICENSE` and `NOTICE` remain intact. TradingView Lightweight Charts and adapted plugins retain Apache-2.0 obligations and attribution. Compiled deployments contain `LICENSE.txt`, `NOTICE.txt` and `THIRD_PARTY_LICENSES.txt`. TradingNinjaPro is not affiliated with TradingView, Binance or the products that inspired its workflow direction.
 
 ---
 
