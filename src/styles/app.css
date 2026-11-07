@@ -247,3 +247,9 @@ body {
 .tnp-chart-axis { display: flex; justify-content: space-between; color: var(--n-muted); font-size: 12px; gap: 8px; margin-left: 108px; }
 .tnp-review-notes { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
 .tnp-review-notes textarea { font: inherit; color: inherit; background: var(--n-panel); border: 1px solid var(--n-line); border-radius: 8px; padding: 10px; }
+
+/* RSI alert cards remain readable without horizontal scrolling on phones. */
+.tnp-indicator-list { display: grid; gap: 12px; list-style: none; padding: 0; margin: 16px 0 0; }
+.tnp-indicator-list li { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; border: 1px solid var(--n-line); border-radius: 8px; padding: 16px; min-width: 0; }
+.tnp-indicator-list li > div { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.tnp-indicator-list li p { margin: 6px 0 0; color: var(--n-muted); font-size: 14px; }
