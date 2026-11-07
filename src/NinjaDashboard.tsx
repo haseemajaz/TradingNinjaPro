@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Download, LayoutGrid, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { MarketEmbed } from "./NinjaMarketChart.tsx";
-import { ASSET_CATALOG, downloadText, type Workspace } from "./ninja-workspace.ts";
+import { ASSET_CATALOG, downloadText, type ScannerSettings, type Workspace } from "./ninja-workspace.ts";
 import type { LocalSession, LocalState } from "./ninja-session.ts";
 import type { OpenChartsAdapter } from "./adapter/types.ts";
 import { uid } from "./lib/uid.ts";
@@ -32,11 +32,10 @@ export function BackupControls({ session, state }: { session: LocalSession; stat
 }
 
 type ScanRow = { id: string; close?: number; rsi?: number; trend?: string; barTime?: number; error?: string };
-function CryptoScanner({ adapter, demo, onOpen }: { adapter: OpenChartsAdapter; demo: boolean; onOpen: (id: string) => void }) {
+export function CryptoScanner({ adapter, demo, onOpen, settings, onSettings }: { adapter: OpenChartsAdapter; demo: boolean; onOpen: (id: string) => void; settings: ScannerSettings; onSettings: (settings: ScannerSettings) => void }) {
   const [rows, setRows] = useState<ScanRow[]>([]);
   const [busy, setBusy] = useState(false);
-  const [updated, setUpdated] = useState<number | null>(null);
-  const [filter, setFilter] = useState("all");
+  const [scanInfo, setScanInfo] = useState<{ time: number; timeframe: ScannerSettings["timeframe"] } | null>(null);
   const lastScan = useRef(0);
   const inFlight = useRef(false);
   const [message, setMessage] = useState("");
@@ -44,25 +43,35 @@ function CryptoScanner({ adapter, demo, onOpen }: { adapter: OpenChartsAdapter; 
     if (inFlight.current) return;
     if (Date.now() - lastScan.current < 60_000) { setMessage("Wait at least one minute between scans to respect provider limits."); return; }
     inFlight.current = true; lastScan.current = Date.now(); setBusy(true); setMessage("");
+    const timeframe = settings.timeframe;
+    const interval = { "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400 }[timeframe];
+    const cutoff = Date.now();
     try {
       const result = await Promise.all(ASSET_CATALOG.filter((a) => a.market === "crypto").map(async (a): Promise<ScanRow> => {
         try {
-          const data = await adapter.marketData.getCandles({ symbol: a.id, timeframe: "1h", limit: 100 });
-          const closed = data.filter((c) => (c.time + 3600) * 1000 <= Date.now());
+          const data = await adapter.marketData.getCandles({ symbol: a.id, timeframe, limit: 100 });
+          const closed = data.filter((c) => (c.time + interval) * 1000 <= cutoff);
           if (closed.length < 30) throw new Error("Not enough completed candles.");
           const last = closed.at(-1)!; const mean = sma(closed, 20).at(-1)?.value; const strength = rsi(closed, 14).at(-1)?.value;
           return { id: a.id, close: last.close, rsi: strength, trend: mean == null ? "Unavailable" : last.close >= mean ? "Above SMA 20" : "Below SMA 20", barTime: last.time };
         } catch { return { id: a.id, error: "Unavailable — provider access, rate limits or history" }; }
       }));
-      setRows(result); setUpdated(Date.now());
+      setRows(result); setScanInfo({ time: Date.now(), timeframe });
     } finally { setBusy(false); inFlight.current = false; }
   };
-  const shown = rows.filter((r) => filter === "all" || (filter === "above" && r.trend === "Above SMA 20") || (filter === "low-rsi" && r.rsi != null && r.rsi < 30));
+  const shown = rows.filter((r) => r.error || settings.filter === "all" || (settings.filter === "above" && r.trend === "Above SMA 20") || (settings.filter === "below" && r.trend === "Below SMA 20") || (settings.filter === "low-rsi" && r.rsi != null && r.rsi < settings.rsiThreshold) || (settings.filter === "high-rsi" && r.rsi != null && r.rsi > settings.rsiThreshold)).sort((a, b) => {
+    if (a.error || b.error) return Number(!!a.error) - Number(!!b.error) || a.id.localeCompare(b.id);
+    if (settings.sort === "rsi-low") return (a.rsi ?? Infinity) - (b.rsi ?? Infinity) || a.id.localeCompare(b.id);
+    if (settings.sort === "rsi-high") return (b.rsi ?? -Infinity) - (a.rsi ?? -Infinity) || a.id.localeCompare(b.id);
+    return a.id.localeCompare(b.id);
+  });
+  const change = (patch: Partial<ScannerSettings>) => onSettings({ ...settings, ...patch });
   return <section className="tnp-panel tnp-scanner" aria-labelledby="scanner-title"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">NATIVE DATA TOOLS</span><h2 id="scanner-title">Crypto technical snapshot</h2></div><button disabled={busy} onClick={() => { void scan(); }}><RefreshCw size={16} />{busy ? "Scanning…" : "Scan 6 pairs"}</button></div>
-    <p>Completed 1-hour candles · RSI 14 and SMA 20 · {demo ? "historical demo data, not live" : "Binance USDT markets"}. A manual snapshot, not a recommendation or a backtest.</p>
-    <div className="tnp-inline-actions"><label>Filter<select value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">All pairs</option><option value="above">Close above SMA 20</option><option value="low-rsi">RSI below 30</option></select></label>{updated && <span>Scanned {new Date(updated).toLocaleTimeString()}</span>}</div>
+    <p>Completed candles · RSI 14 and SMA 20 · {demo ? "historical demo data with shifted dates, not live" : "Binance USDT markets"}. Manual snapshot, not a recommendation or backtest.</p>
+    <div className="tnp-inline-actions"><label>Timeframe<select value={settings.timeframe} disabled={busy} onChange={(e) => change({ timeframe: e.target.value as ScannerSettings["timeframe"] })}>{["15m", "1h", "4h", "1d"].map((t) => <option key={t}>{t}</option>)}</select></label><label>Filter<select value={settings.filter} onChange={(e) => change({ filter: e.target.value as ScannerSettings["filter"] })}><option value="all">All pairs</option><option value="above">Close above SMA 20</option><option value="below">Close below SMA 20</option><option value="low-rsi">RSI below threshold</option><option value="high-rsi">RSI above threshold</option></select></label><label>RSI threshold<select value={settings.rsiThreshold} onChange={(e) => change({ rsiThreshold: Number(e.target.value) })}>{[20, 30, 40, 50, 60, 70, 80].map((v) => <option key={v} value={v}>{v}</option>)}</select></label><label>Sort<select value={settings.sort} onChange={(e) => change({ sort: e.target.value as ScannerSettings["sort"] })}><option value="symbol">Pair</option><option value="rsi-low">RSI lowest first</option><option value="rsi-high">RSI highest first</option></select></label></div>
+    {scanInfo && <p role="status">Last scan: {new Date(scanInfo.time).toLocaleString()} · {scanInfo.timeframe} candles{settings.timeframe !== scanInfo.timeframe ? " · timeframe changed; scan again for new results" : ""}. Data is a snapshot, not continuously updated.</p>}
     {message && <p role="status">{message}</p>}
-    <div className="tnp-table-scroll"><table><thead><tr><th>Pair</th><th>Last completed close</th><th>RSI 14</th><th>Position vs SMA 20</th><th>Bar opened (UTC)</th></tr></thead><tbody>{shown.map((r) => <tr key={r.id}><td><button onClick={() => onOpen(r.id)}>{r.id.replace("USD", "/USDT")}</button></td><td>{r.close?.toLocaleString(undefined, { maximumFractionDigits: 5 }) ?? "Unavailable"}</td><td>{r.rsi?.toFixed(1) ?? "—"}</td><td>{r.error ?? r.trend}</td><td>{r.barTime ? new Date(r.barTime * 1000).toISOString().replace("T", " ").slice(0, 16) : "—"}</td></tr>)}</tbody></table></div>
+    <div className="tnp-table-scroll"><table><thead><tr><th>Pair</th><th>Last completed close</th><th>RSI 14</th><th>Position vs SMA 20</th><th>Bar opened (UTC{demo ? ", shifted" : ""})</th></tr></thead><tbody>{shown.map((r) => <tr key={r.id}><td><button onClick={() => onOpen(r.id)}>{r.id.replace("USD", "/USDT")}</button></td><td>{r.close?.toLocaleString(undefined, { maximumFractionDigits: 5 }) ?? "Unavailable"}</td><td>{r.rsi?.toFixed(1) ?? "—"}</td><td>{r.error ?? r.trend}</td><td>{r.barTime ? new Date(r.barTime * 1000).toISOString().replace("T", " ").slice(0, 16) : "—"}</td></tr>)}</tbody></table></div>
     {!rows.length && <div className="tnp-empty">Run a scan to calculate indicators from available historical candles. Six requests per scan; no continuous background scanning.</div>}
     {rows.length > 0 && shown.length === 0 && <div className="tnp-empty">No pairs match this filter. Missing data is not treated as a match.</div>}
   </section>;
@@ -107,7 +116,7 @@ export function NinjaDashboard({ session, state, dark, adapter, demo, health, on
     <section className="tnp-panel" aria-labelledby="multi-title"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">CONTEXT, SIDE BY SIDE</span><h2 id="multi-title">Multi-chart desk</h2></div><label>Chart layout<select value={w.chartCount} onChange={(e) => update({ ...w, chartCount: Number(e.target.value) as 1 | 2 | 4 })}><option value={1}>Single chart</option><option value={2}>Two charts</option><option value={4}>Four charts</option></select></label></div><p>Independent TradingView embeds; cursors and timeframes are not synchronised. These charts are display-only—even for crypto—and are separate from native paper execution. Each chart requires an external-content opt-in.</p>
       <div className={`tnp-chart-grid tnp-charts-${w.chartCount}`}>{w.chartAssets.slice(0, w.chartCount).map((id, i) => { const a = ASSET_CATALOG.find((asset) => asset.id === id)!; return <section className="tnp-grid-chart" key={i}><label>Chart {i + 1}<select value={id} onChange={(e) => update({ ...w, chartAssets: w.chartAssets.map((old, j) => j === i ? e.target.value : old) })}>{ASSET_CATALOG.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label><div className="tnp-chart-card"><MarketEmbed symbol={a.chart} dark={dark} /></div></section>; })}</div>
     </section>
-    <CryptoScanner adapter={adapter} demo={demo} onOpen={onOpen} />
+    <CryptoScanner adapter={adapter} demo={demo} onOpen={onOpen} settings={w.scanner} onSettings={(scanner) => update({ ...w, scanner })} />
     <section className="tnp-panel"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">YOUR DATA, YOUR DEVICE</span><h2>Local account & backups</h2></div><LayoutGrid size={24} /></div><p role="status">{state.message}{state.savedAt ? ` · last saved ${new Date(state.savedAt).toLocaleTimeString()}` : ""}. Live and historical-demo accounts are separate. Clearing site data removes local saves. Browser-origin changes do not migrate data: export before moving from this preview to 20i.</p><BackupControls session={session} state={state} /></section>
   </div>;
 }
