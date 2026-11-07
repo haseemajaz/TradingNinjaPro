@@ -82,7 +82,7 @@ describe("terminal composition", () => {
     useTradingStore.setState({ selectedSymbol: "ETHUSD", activeAccountId: "demo" });
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
+    const { unmount } = render(
       <QueryClientProvider client={client}>
         <TerminalProvider>
           <OrderTicket />
@@ -92,5 +92,9 @@ describe("terminal composition", () => {
 
     // The ticket reads the charted symbol from the provider, not from props.
     await waitFor(() => expect(screen.getByText(/ETHUSD/)).toBeInTheDocument());
+    unmount();
+    client.clear();
+    // Let queued query notifications drain before Vitest tears down jsdom.
+    await new Promise((resolve) => setTimeout(resolve, 30));
   });
 });
