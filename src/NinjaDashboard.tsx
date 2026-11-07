@@ -4,6 +4,7 @@ import { MarketEmbed } from "./NinjaMarketChart.tsx";
 import { NinjaPerformance } from "./NinjaPerformance.tsx";
 import { NinjaBacktest } from "./NinjaBacktest.tsx";
 import { NinjaAlerts } from "./NinjaAlerts.tsx";
+import { NinjaDrawingBackup } from "./NinjaDrawingBackup.tsx";
 import { NinjaIndicatorAlerts } from "./NinjaIndicatorAlerts.tsx";
 import type { IndicatorStatuses } from "./ninja-indicator-alerts.ts";
 import { ASSET_CATALOG, downloadText, type ScannerSettings, type Workspace } from "./ninja-workspace.ts";
@@ -127,7 +128,7 @@ export function NinjaDashboard({ session, state, dark, adapter, demo, health, in
     <NinjaAlerts workspace={w} onUpdate={update} demo={demo} />
     <NinjaIndicatorAlerts workspace={w} onUpdate={update} demo={demo} statuses={indicatorStatuses} />
     <CryptoScanner adapter={adapter} demo={demo} onOpen={onOpen} settings={w.scanner} onSettings={(scanner) => update({ ...w, scanner })} />
-    <section className="tnp-panel"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">YOUR DATA, YOUR DEVICE</span><h2>Local account & backups</h2></div><LayoutGrid size={24} /></div><p role="status">{state.message}{state.savedAt ? ` · last saved ${new Date(state.savedAt).toLocaleTimeString()}` : ""}. Live and historical-demo accounts are separate. Clearing site data removes local saves. Browser-origin changes do not migrate data: export before moving from this preview to 20i.</p><BackupControls session={session} state={state} /></section>
+    <section className="tnp-panel"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">YOUR DATA, YOUR DEVICE</span><h2>Local account & backups</h2></div><LayoutGrid size={24} /></div><p role="status">{state.message}{state.savedAt ? ` · last saved ${new Date(state.savedAt).toLocaleTimeString()}` : ""}. Live and historical-demo accounts are separate. Clearing site data removes local saves. Browser-origin changes do not migrate data: export before moving from this preview to 20i.</p><BackupControls session={session} state={state} /><NinjaDrawingBackup session={session} state={state} mode={demo ? "demo" : "live"} /></section>
   </div>;
 }
 function XIcon() { return <span aria-hidden="true">×</span>; }
