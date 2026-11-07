@@ -15,7 +15,7 @@ const DrawingSchema = z.strictObject({
 const DrawingList = z.array(DrawingSchema).max(1000).refine((items) => new Set(items.map((d) => d.id)).size === items.length, "Duplicate drawing IDs.");
 const DrawingBackup = z.strictObject({ format: z.literal("TradingNinjaPro.drawings.v1"), symbol: z.string().refine((id) => ASSET_CATALOG.some((a) => a.market === "crypto" && a.id === id)), savedAt: z.string().datetime(), drawings: DrawingList });
 export function parseDrawingBackup(text: string, symbol: string) {
-  if (text.length > MAX_BYTES) throw new Error("Drawing backup exceeds the 1 MB limit.");
+  if (text.length > MAX_BYTES || new TextEncoder().encode(text).length > MAX_BYTES) throw new Error("Drawing backup exceeds the 1 MB limit.");
   const parsed: unknown = JSON.parse(text);
   preflightBackup(parsed);
   const backup = DrawingBackup.parse(parsed);
