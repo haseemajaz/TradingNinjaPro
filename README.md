@@ -11,7 +11,7 @@ An independent, self-hosted charting and practice workspace built on [OpenCharts
 - **Validated backup/restore:** account, journal, watchlists, chart selections and strategy plans in a versioned JSON backup. Invalid or wrong-mode imports are rejected before account replacement.
 - **Cross-tab protection:** Web Locks allow one writer per origin and data mode. A second tab is blocked from opening that practice account. Browsers without locking use an explicitly temporary session, without automatic shared saves.
 - **Manual strategy planner:** save indicator-rule checklists, timeframe, direction, planning risk/stop/target constraints, review confirmations and notes. Export plans as JSON. No rule execution, AI predictions or backtesting.
-- **Crypto technical snapshot:** a manual scan of six pairs using completed 1-hour candles, RSI 14 and SMA 20, with filters and provider errors kept visible. At least one minute between scans. Not a trading recommendation.
+- **Crypto technical snapshot:** a manual scan of six pairs using completed 15-minute, 1-hour, 4-hour or daily candles, RSI 14 and SMA 20. Saved filters, RSI thresholds and sorting help explore results; provider errors stay visible. At least one minute between scans. Historical demo candle timestamps are shifted. Not a trading recommendation or backtest.
 - Branded light/dark responsive UI, native risk calculator, closed-trade CSV export, explicit feed labels and stale-quote safeguards.
 
 ## Run, test and build
