@@ -5,8 +5,20 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true
+    "rewriteRelativeImportExtensions": true,
+    "types": [
+      "vite/client"
+    ]
   },
-  "include": ["src", "vite-env.d.ts"],
-  "exclude": ["src/__tests__", "src/main.tsx", "src/Root.tsx"]
+  "include": [
+    "src",
+    "vite-env.d.ts"
+  ],
+  "exclude": [
+    "src/__tests__",
+    "src/main.tsx",
+    "src/Root.tsx",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ]
 }

@@ -41,7 +41,7 @@ export default defineConfig({
       entryRoot: "src",
       outDir: "dist-lib",
       include: ["src"],
-      exclude: ["src/__tests__", "src/main.tsx", "src/Root.tsx"],
+      exclude: ["src/__tests__", "src/**/*.test.ts", "src/**/*.test.tsx", "src/main.tsx", "src/Root.tsx"],
     }),
   ],
   resolve: {

@@ -52,6 +52,14 @@ describe("backup and workspace validation", () => {
   it("round-trips a complete backup and its named watchlists", () => {
     const data = backup(); expect(parseBackup(data, "live").workspace.lists[0]?.name).toBe("My markets");
   });
+  it("migrates older v2 backups with missing newer workspace settings", () => {
+    const data = backup();
+    const { scanner: _scanner, reviews: _reviews, alerts: _alerts, chartInterval: _interval, linkChartSymbols: _linked, ...oldWorkspace } = data.workspace;
+    const parsed = parseBackup({ ...data, workspace: oldWorkspace }, "live");
+    expect(parsed.workspace.scanner.timeframe).toBe("1h");
+    expect(parsed.workspace.reviews).toEqual([]); expect(parsed.workspace.alerts).toEqual([]);
+    expect(parsed.workspace.chartInterval).toBe("60"); expect(parsed.workspace.linkChartSymbols).toBe(false);
+  });
   it("keeps live and demo account backups isolated", () => { expect(() => parseBackup(backup(), "demo")).toThrow("Switch to that data mode"); });
   it("rejects another account’s journal without changing the engine", () => {
     const data = { ...backup(), journal: [{ id: "j", accountId: "other", tags: [], notes: "private", createdAt: new Date().toISOString() }] };
