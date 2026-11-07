@@ -41,11 +41,20 @@ export const PlanSchema = z.object({
   checked: z.array(z.string().max(100)).max(12), updatedAt: z.string().datetime(),
 });
 export type StrategyPlan = z.infer<typeof PlanSchema>;
+export const ScannerSettingsSchema = z.object({
+  timeframe: z.enum(["15m", "1h", "4h", "1d"]),
+  filter: z.enum(["all", "above", "below", "low-rsi", "high-rsi"]),
+  rsiThreshold: z.number().refine((v) => [20, 30, 40, 50, 60, 70, 80].includes(v)),
+  sort: z.enum(["symbol", "rsi-low", "rsi-high"]),
+});
+export type ScannerSettings = z.infer<typeof ScannerSettingsSchema>;
+export const defaultScannerSettings = (): ScannerSettings => ({ timeframe: "1h", filter: "all", rsiThreshold: 30, sort: "symbol" });
 export const WorkspaceSchema = z.object({
   lists: z.array(z.object({ id: z.string().min(1).max(100), name: z.string().trim().min(1).max(50), assets: z.array(z.string().refine((s) => ASSET_CATALOG.some((a) => a.id === s))).max(30) })).min(1).max(8),
   activeList: z.string().max(100), chartCount: z.union([z.literal(1), z.literal(2), z.literal(4)]),
   chartAssets: z.array(z.string().refine((s) => ASSET_CATALOG.some((a) => a.id === s))).length(4),
   plans: z.array(PlanSchema).max(100),
+  scanner: ScannerSettingsSchema.default(defaultScannerSettings),
 }).superRefine((w, ctx) => {
   if (new Set(w.lists.map((l) => l.id)).size !== w.lists.length || !w.lists.some((l) => l.id === w.activeList)) ctx.addIssue({ code: "custom", message: "Invalid watchlist identity." });
   if (w.lists.some((l) => new Set(l.assets).size !== l.assets.length)) ctx.addIssue({ code: "custom", message: "Duplicate watchlist assets." });
@@ -53,7 +62,7 @@ export const WorkspaceSchema = z.object({
 });
 export type Workspace = z.infer<typeof WorkspaceSchema>;
 export function defaultWorkspace(): Workspace {
-  return { lists: [{ id: "core", name: "My markets", assets: ["BTCUSD", "ETHUSD", "FX:EURUSD", "OANDA:XAUUSD", "NASDAQ:AAPL"] }], activeList: "core", chartCount: 2, chartAssets: ["BTCUSD", "FX:EURUSD", "OANDA:XAUUSD", "NASDAQ:AAPL"], plans: [] };
+  return { lists: [{ id: "core", name: "My markets", assets: ["BTCUSD", "ETHUSD", "FX:EURUSD", "OANDA:XAUUSD", "NASDAQ:AAPL"] }], activeList: "core", chartCount: 2, chartAssets: ["BTCUSD", "FX:EURUSD", "OANDA:XAUUSD", "NASDAQ:AAPL"], plans: [], scanner: defaultScannerSettings() };
 }
 export function newPlan(): StrategyPlan {
   return { id: uid(), name: "EMA trend checklist", asset: "BTCUSD", timeframe: "1h", side: "long", conditions: ["ema-cross-up", "close-above-sma20"], riskPercent: 1, stopPercent: 2, targetR: 2, notes: "", checked: [], updatedAt: new Date().toISOString() };
