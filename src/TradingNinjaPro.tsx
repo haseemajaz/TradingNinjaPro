@@ -11,6 +11,7 @@ import { MarketEmbed } from "./NinjaMarketChart.tsx";
 import { NinjaDashboard, BackupControls } from "./NinjaDashboard.tsx";
 import { NinjaPlanner } from "./NinjaPlanner.tsx";
 import { usePriceAlerts } from "./ninja-alerts.ts";
+import { useIndicatorAlerts } from "./ninja-indicator-alerts.ts";
 import { ASSET_CATALOG, type Market, type View } from "./ninja-workspace.ts";
 import { startLocalSession, type LocalSession } from "./ninja-session.ts";
 import { useTradingStore } from "./services/store.tsx";
@@ -94,6 +95,7 @@ function NinjaApp({ session }: { session: LocalSession }) {
   const [live] = useState(() => DEMO ? null : createNinjaLiveAdapter());
   const [adapter] = useState(() => session.wrapAdapter(live?.adapter ?? createDemoAdapter()));
   usePriceAlerts(session, adapter);
+  const indicatorStatuses = useIndicatorAlerts(session, adapter);
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 5000 } } }));
   useEffect(() => {
     if (!live) return;
@@ -134,9 +136,10 @@ function NinjaApp({ session }: { session: LocalSession }) {
     <main id="tnp-workspace" className="tnp-main" tabIndex={-1}>
       <div className="tnp-sourcebar"><div><span className={`tnp-status ${view === "crypto" && !DEMO && health === "live" ? "is-live" : ""}`} />{view === "crypto" ? <><strong>{DEMO ? "Historical replay" : "Binance spot"}</strong><span>{DEMO ? "Not live · simulated stream" : healthLabel}</span></> : external ? <><strong>TradingView embed</strong><span>Provider-dependent data & delays · display only</span></> : <><strong>{view === "planner" ? "Manual strategy planner" : "Research workspace"}</strong><span>{DEMO ? "Historical practice mode · not live" : "Live-data practice mode"} · {state.status === "ready" ? "local save enabled" : state.status}</span></>}</div><button onClick={toggleMode}>{DEMO ? "Switch to live" : "Use historical demo"}<ChevronDown size={14} /></button></div>
       {state.workspace.alerts.some((a) => a.firedAt) && <div className="tnp-storage-warning" role="status">Price alert triggered. Open Dashboard → Crypto price alerts for details.</div>}
+      {state.workspace.indicatorAlerts.some((a) => a.firedAt) && <div className="tnp-storage-warning" role="status">RSI alert triggered. Open Dashboard → Crypto RSI alerts for details.</div>}
       {state.status === "memory-only" && <div className="tnp-storage-warning" role="alert">{state.message}</div>}
       {blocked ? <section className="tnp-recovery"><h1>Local account unavailable</h1><p role="alert">{state.message}</p><button onClick={() => window.location.reload()}>Reload this tab</button><BackupControls session={session} state={state} /></section> : <>
-        {view === "dashboard" && <NinjaDashboard session={session} state={state} dark={dark} adapter={adapter} demo={DEMO} health={health} onOpen={openAsset} onPlanner={() => selectView("planner")} />}
+        {view === "dashboard" && <NinjaDashboard session={session} state={state} dark={dark} adapter={adapter} demo={DEMO} health={health} indicatorStatuses={indicatorStatuses} onOpen={openAsset} onPlanner={() => selectView("planner")} />}
         {view === "planner" && <NinjaPlanner workspace={state.workspace} onUpdate={session.updateWorkspace} onOpen={openAsset} />}
         <section className="tnp-native" hidden={view !== "crypto"} aria-label="Crypto practice terminal">
           <div className="tnp-session-note"><span>{DEMO ? "Historical" : "Live-data"} practice account · {state.status === "ready" ? "saved on this browser" : "temporary session"} · USDT quoted markets</span><button onClick={() => { downloadTrades(); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? <Check size={14} /> : <Download size={14} />}{copied ? "CSV downloaded" : "Export closed trades"}</button></div>
