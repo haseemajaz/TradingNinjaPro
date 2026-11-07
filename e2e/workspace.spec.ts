@@ -23,11 +23,16 @@ test('mobile planner, backtest report and backup restore', async ({ page }) => {
   expect(report.simulation.bars).toBeGreaterThan(20);
   expect(report.summary.simulatedCloses).toBe(report.simulation.trades.length);
   expect(report.assumptions).toContain('not a prediction');
+  const indicators = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Crypto RSI alerts', exact: true }) });
+  await indicators.getByLabel('RSI threshold').fill('0');
+  await indicators.getByRole('button', { name: 'Add RSI alert' }).click();
+  await expect(indicators.getByText(/Triggered .* RSI/)).toBeVisible({ timeout: 30_000 });
   const backupDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Backup', exact: true }).click();
   const backup = await (await backupDownload).createReadStream();
   const bytes = Buffer.concat(await backup.toArray());
   expect(JSON.parse(bytes.toString()).workspace.plans[0].name).toBe('Browser test plan');
+  expect(JSON.parse(bytes.toString()).workspace.indicatorAlerts[0].firedValue).not.toBeNull();
   // Bad input cannot overwrite the account; cancelling a valid restore is also non-destructive.
   await page.getByLabel('Restore local account backup').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{') });
   await expect(page.getByText(/JSON/).last()).toBeVisible();
@@ -45,6 +50,7 @@ test('mobile planner, backtest report and backup restore', async ({ page }) => {
   await Promise.all([page.waitForEvent('load'), page.getByLabel('Restore local account backup').setInputFiles({ name: 'backup.json', mimeType: 'application/json', buffer: replacementBytes })]);
   await expect(page.getByRole('heading', { name: 'Know your markets.' })).toBeVisible();
   await expect(backtest.getByLabel('Saved crypto plan').locator('option', { hasText: 'Restored plan' })).toHaveCount(1);
+  await expect(indicators.getByText(/Triggered .* RSI/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
