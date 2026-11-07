@@ -1,0 +1,17 @@
+import { useState } from "react";
+import { uid } from "./lib/uid.ts";
+import { ASSET_CATALOG, PriceAlertSchema, type Workspace } from "./ninja-workspace.ts";
+
+export function NinjaAlerts({ workspace, onUpdate, demo }: { workspace: Workspace; onUpdate: (w: Workspace) => boolean; demo: boolean }) {
+  const [asset, setAsset] = useState("BTCUSD"); const [direction, setDirection] = useState<"above" | "below">("above"); const [price, setPrice] = useState(""); const [message, setMessage] = useState("");
+  const add = () => {
+    if (workspace.alerts.length >= 100) { setMessage("Up to 100 alerts can be saved. Delete old alerts first."); return; }
+    const parsed = PriceAlertSchema.safeParse({ id: uid(), asset, direction, threshold: price.trim() ? Number(price) : NaN, createdAt: new Date().toISOString(), firedAt: null, firedPrice: null });
+    if (!parsed.success) { setMessage("Enter a positive price up to 1 trillion."); return; }
+    if (!onUpdate({ ...workspace, alerts: [parsed.data, ...workspace.alerts] })) { setMessage("Alert could not be saved."); return; }
+    setPrice(""); setMessage("Alert armed. It may trigger on the next fresh quote if the condition is already met. Check storage status for persistence.");
+  };
+  return <section className="tnp-panel"><span className="tnp-eyebrow">IN-SESSION MONITORING</span><h2>Crypto price alerts</h2><p>{demo ? "Historical demo quotes are simulated and not live. " : "Live-data mode uses Binance USDT quotes. "}One-shot alerts use the fresh bid/ask midpoint while this app is open and receiving ticks, including on other workspace screens in this tab. They can trigger immediately if already beyond the level. Nothing runs while the app is closed, suspended or disconnected; a gap can trigger an alert on reconnection. No email, background or push delivery.</p><div className="tnp-inline-actions"><label>Instrument<select value={asset} onChange={(e)=>setAsset(e.target.value)}>{ASSET_CATALOG.filter((a)=>a.market==="crypto").map((a)=><option key={a.id} value={a.id}>{a.id.replace("USD","/USDT")}</option>)}</select></label><label>Condition<select value={direction} onChange={(e)=>setDirection(e.target.value as "above"|"below")}><option value="above">At or above</option><option value="below">At or below</option></select></label><label>Midpoint price (USDT)<input type="number" min="0" max="1000000000000" step="any" value={price} onChange={(e)=>setPrice(e.target.value)} /></label><button onClick={add}>Add alert</button></div>{message && <p role="status">{message}</p>}
+    {workspace.alerts.length > 0 ? <div className="tnp-table-scroll"><table><thead><tr><th>Pair</th><th>Condition</th><th>Status</th><th><span className="tnp-sr-only">Delete</span></th></tr></thead><tbody>{workspace.alerts.map((a)=><tr key={a.id}><td>{a.asset.replace("USD","/USDT")}</td><td>At or {a.direction} {a.threshold.toLocaleString(undefined,{maximumFractionDigits:8})}</td><td>{a.firedAt ? `Triggered ${new Date(a.firedAt).toLocaleString()} at ${a.firedPrice?.toLocaleString(undefined,{maximumFractionDigits:8})}` : "Armed · app must be open"}</td><td><button aria-label={`Delete alert ${a.asset} ${a.direction} ${a.threshold}`} onClick={()=>{if (!onUpdate({...workspace,alerts:workspace.alerts.filter((v)=>v.id!==a.id)})) setMessage("Alert could not be deleted.");}}>Delete</button></td></tr>)}</tbody></table></div> : <div className="tnp-empty">No saved price alerts yet.</div>}
+  </section>;
+}
