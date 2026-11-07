@@ -4,6 +4,8 @@ import { MarketEmbed } from "./NinjaMarketChart.tsx";
 import { NinjaPerformance } from "./NinjaPerformance.tsx";
 import { NinjaBacktest } from "./NinjaBacktest.tsx";
 import { NinjaAlerts } from "./NinjaAlerts.tsx";
+import { NinjaIndicatorAlerts } from "./NinjaIndicatorAlerts.tsx";
+import type { IndicatorStatuses } from "./ninja-indicator-alerts.ts";
 import { ASSET_CATALOG, downloadText, type ScannerSettings, type Workspace } from "./ninja-workspace.ts";
 import type { LocalSession, LocalState } from "./ninja-session.ts";
 import type { OpenChartsAdapter } from "./adapter/types.ts";
@@ -22,7 +24,7 @@ export function BackupControls({ session, state }: { session: LocalSession; stat
       if (selected.size > 4_000_000) throw new Error("Backup exceeds 4 MB.");
       const text = await selected.text();
       const preview = session.inspectBackup(text);
-      if (!window.confirm(`Restore ${preview.mode} backup saved ${preview.savedAt}?\nBalance: ${preview.balance.toLocaleString(undefined, { style: "currency", currency: "USD" })}\n${preview.positions} positions, ${preview.orders} order records, ${preview.closed} closes, ${preview.journal} journal entries, ${preview.plans} plans, ${preview.reviews} reviews and ${preview.alerts} alerts.\n\nThis replaces this mode’s saved account and workspace. Export a current backup first. Other modes are not changed; chart drawings and theme are excluded.`)) return;
+      if (!window.confirm(`Restore ${preview.mode} backup saved ${preview.savedAt}?\nBalance: ${preview.balance.toLocaleString(undefined, { style: "currency", currency: "USD" })}\n${preview.positions} positions, ${preview.orders} order records, ${preview.closed} closes, ${preview.journal} journal entries, ${preview.plans} plans, ${preview.reviews} reviews and ${preview.alerts} price alerts and ${preview.indicatorAlerts} RSI alerts.\n\nThis replaces this mode’s saved account and workspace. Export a current backup first. Other modes are not changed; chart drawings and theme are excluded.`)) return;
       session.importBackup(text); window.location.reload();
     } catch (e) { setMessage(e instanceof Error ? e.message : "Backup could not be restored."); }
     finally { input.value = ""; }
@@ -32,7 +34,7 @@ export function BackupControls({ session, state }: { session: LocalSession; stat
     <button disabled={state.status === "busy"} onClick={() => file.current?.click()}><Upload size={16} /> Restore</button>
     <input ref={file} type="file" accept=".json,application/json" aria-label="Restore local account backup" onChange={(e) => { void restore(e.currentTarget); }} hidden />
     <button disabled={state.status === "busy"} onClick={() => { if (window.confirm("Reset this mode’s financial practice account to $100,000 and remove all positions, orders, fills and closed history? Watchlists, plans and journal notes remain.")) { try { session.resetAccount(); window.location.reload(); } catch (e) { setMessage(e instanceof Error ? e.message : "Reset failed."); } } }}>Reset practice account</button>
-  </div><p>Backup contains this mode’s account, journal, watchlists, chart selections, plans, reviews and alerts. It excludes chart drawings, theme and third-party widget preferences. No cloud sync.</p>{message && <p role="status">{message}</p>}</div>;
+  </div><p>Backup contains this mode’s account, journal, watchlists, chart selections, plans, reviews, price alerts and RSI alerts. It excludes chart drawings, theme and third-party widget preferences. No cloud sync.</p>{message && <p role="status">{message}</p>}</div>;
 }
 
 type ScanRow = { id: string; close?: number; rsi?: number; trend?: string; barTime?: number; error?: string };
@@ -81,9 +83,9 @@ export function CryptoScanner({ adapter, demo, onOpen, settings, onSettings }: {
   </section>;
 }
 
-export function NinjaDashboard({ session, state, dark, adapter, demo, health, onOpen, onPlanner }: {
+export function NinjaDashboard({ session, state, dark, adapter, demo, health, indicatorStatuses, onOpen, onPlanner }: {
   session: LocalSession; state: LocalState; dark: boolean; adapter: OpenChartsAdapter; demo: boolean; health: FeedHealth;
-  onOpen: (id: string) => void; onPlanner: () => void;
+  indicatorStatuses: IndicatorStatuses; onOpen: (id: string) => void; onPlanner: () => void;
 }) {
   const w = state.workspace;
   const active = w.lists.find((l) => l.id === w.activeList)!;
@@ -123,6 +125,7 @@ export function NinjaDashboard({ session, state, dark, adapter, demo, health, on
     <NinjaPerformance records={snapshot.closed} balance={snapshot.account.balance} workspace={w} onUpdate={update} />
     <NinjaBacktest plans={w.plans} adapter={adapter} demo={demo} />
     <NinjaAlerts workspace={w} onUpdate={update} demo={demo} />
+    <NinjaIndicatorAlerts workspace={w} onUpdate={update} demo={demo} statuses={indicatorStatuses} />
     <CryptoScanner adapter={adapter} demo={demo} onOpen={onOpen} settings={w.scanner} onSettings={(scanner) => update({ ...w, scanner })} />
     <section className="tnp-panel"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">YOUR DATA, YOUR DEVICE</span><h2>Local account & backups</h2></div><LayoutGrid size={24} /></div><p role="status">{state.message}{state.savedAt ? ` · last saved ${new Date(state.savedAt).toLocaleTimeString()}` : ""}. Live and historical-demo accounts are separate. Clearing site data removes local saves. Browser-origin changes do not migrate data: export before moving from this preview to 20i.</p><BackupControls session={session} state={state} /></section>
   </div>;
