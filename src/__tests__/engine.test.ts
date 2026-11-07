@@ -139,6 +139,23 @@ describe("market orders", () => {
   });
 });
 
+describe("paper margin safeguards", () => {
+  it("rejects a marketable limit without sufficient margin", () => {
+    engine.mark(SYMBOL, 50_000);
+    expect(() => engine.placeOrder({ accountId: "demo", symbol: SYMBOL, side: "BUY", type: "LIMIT", quantity: 300, price: 51_000 })).toThrow(/margin/i);
+    expect(engine.getPositions()).toHaveLength(0);
+    expect(engine.getOrders()[0]?.status).toBe("REJECTED");
+  });
+  it("reserves margin between pending orders triggered by the same tick", () => {
+    engine.mark(SYMBOL, 50_000);
+    for (let i = 0; i < 2; i++) engine.placeOrder({ accountId: "demo", symbol: SYMBOL, side: "BUY", type: "LIMIT", quantity: 150, price: 49_000 });
+    engine.mark(SYMBOL, 49_000);
+    expect(engine.getPositions()).toHaveLength(1);
+    expect(engine.getOrders().filter((o) => o.status === "REJECTED")).toHaveLength(1);
+    expect(engine.getAccount().freeMargin).toBeGreaterThanOrEqual(0);
+  });
+});
+
 describe("resting orders", () => {
   it("keeps a buy limit below the market pending until price falls to it", () => {
     engine.mark(SYMBOL, 50_000);
