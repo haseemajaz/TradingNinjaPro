@@ -62,6 +62,12 @@ export const PriceAlertSchema = z.object({
   createdAt: z.string().datetime(), firedAt: z.string().datetime().nullable(), firedPrice: z.number().finite().positive().nullable(),
 }).superRefine((a, ctx) => { if ((a.firedAt === null) !== (a.firedPrice === null)) ctx.addIssue({ code: "custom", message: "Alert trigger is incomplete." }); });
 export type PriceAlert = z.infer<typeof PriceAlertSchema>;
+export const IndicatorAlertSchema = z.object({
+  id: z.string().min(1).max(100), asset: z.string().refine((s) => ASSET_CATALOG.some((a) => a.id === s && a.market === "crypto")),
+  timeframe: z.enum(["15m", "1h", "4h", "1d"]), direction: z.enum(["above", "below"]), threshold: z.number().finite().min(0).max(100),
+  createdAt: z.string().datetime(), firedAt: z.string().datetime().nullable(), firedValue: z.number().finite().min(0).max(100).nullable(), firedBar: z.number().int().positive().nullable(),
+}).superRefine((a, ctx) => { if (!((a.firedAt === null && a.firedValue === null && a.firedBar === null) || (a.firedAt !== null && a.firedValue !== null && a.firedBar !== null))) ctx.addIssue({ code: "custom", message: "Indicator alert trigger is incomplete." }); });
+export type IndicatorAlert = z.infer<typeof IndicatorAlertSchema>;
 export const WorkspaceSchema = z.object({
   lists: z.array(z.object({ id: z.string().min(1).max(100), name: z.string().trim().min(1).max(50), assets: z.array(z.string().refine((s) => ASSET_CATALOG.some((a) => a.id === s))).max(30) })).min(1).max(8),
   activeList: z.string().max(100), chartCount: z.union([z.literal(1), z.literal(2), z.literal(4)]),
@@ -72,16 +78,18 @@ export const WorkspaceSchema = z.object({
   scanner: ScannerSettingsSchema.default(defaultScannerSettings),
   reviews: z.array(TradeReviewSchema).max(1000).default([]),
   alerts: z.array(PriceAlertSchema).max(100).default([]),
+  indicatorAlerts: z.array(IndicatorAlertSchema).max(20).default([]),
 }).superRefine((w, ctx) => {
   if (new Set(w.lists.map((l) => l.id)).size !== w.lists.length || !w.lists.some((l) => l.id === w.activeList)) ctx.addIssue({ code: "custom", message: "Invalid watchlist identity." });
   if (w.lists.some((l) => new Set(l.assets).size !== l.assets.length)) ctx.addIssue({ code: "custom", message: "Duplicate watchlist assets." });
   if (new Set(w.plans.map((p) => p.id)).size !== w.plans.length) ctx.addIssue({ code: "custom", message: "Duplicate strategy IDs." });
   if (new Set(w.reviews.map((r) => r.closedId)).size !== w.reviews.length) ctx.addIssue({ code: "custom", message: "Duplicate trade reviews." });
   if (new Set(w.alerts.map((a) => a.id)).size !== w.alerts.length) ctx.addIssue({ code: "custom", message: "Duplicate alert IDs." });
+  if (new Set(w.indicatorAlerts.map((a) => a.id)).size !== w.indicatorAlerts.length) ctx.addIssue({ code: "custom", message: "Duplicate indicator alert IDs." });
 });
 export type Workspace = z.infer<typeof WorkspaceSchema>;
 export function defaultWorkspace(): Workspace {
-  return { lists: [{ id: "core", name: "My markets", assets: ["BTCUSD", "ETHUSD", "FX:EURUSD", "OANDA:XAUUSD", "NASDAQ:AAPL"] }], activeList: "core", chartCount: 2, chartAssets: ["BTCUSD", "FX:EURUSD", "OANDA:XAUUSD", "NASDAQ:AAPL"], plans: [], scanner: defaultScannerSettings(), reviews: [], alerts: [], chartInterval: "60", linkChartSymbols: false };
+  return { lists: [{ id: "core", name: "My markets", assets: ["BTCUSD", "ETHUSD", "FX:EURUSD", "OANDA:XAUUSD", "NASDAQ:AAPL"] }], activeList: "core", chartCount: 2, chartAssets: ["BTCUSD", "FX:EURUSD", "OANDA:XAUUSD", "NASDAQ:AAPL"], plans: [], scanner: defaultScannerSettings(), reviews: [], alerts: [], indicatorAlerts: [], chartInterval: "60", linkChartSymbols: false };
 }
 export function newPlan(): StrategyPlan {
   return { id: uid(), name: "EMA trend checklist", asset: "BTCUSD", timeframe: "1h", side: "long", conditions: ["ema-cross-up", "close-above-sma20"], riskPercent: 1, stopPercent: 2, targetR: 2, notes: "", checked: [], updatedAt: new Date().toISOString() };
