@@ -82,7 +82,7 @@ function initializeSession(mode: Mode) {
     inspectBackup: (text: string) => {
       if (text.length > MAX_BACKUP_BYTES) throw new Error("Backup exceeds the 4 MB limit.");
       const data = parseBackup(JSON.parse(text) as unknown, mode);
-      return { mode: data.mode, savedAt: data.savedAt, balance: data.account.account.balance, positions: data.account.positions.length, orders: data.account.orders.length, closed: data.account.closed.length, journal: data.journal.length, plans: data.workspace.plans.length, reviews: data.workspace.reviews.length, alerts: data.workspace.alerts.length };
+      return { mode: data.mode, savedAt: data.savedAt, balance: data.account.account.balance, positions: data.account.positions.length, orders: data.account.orders.length, closed: data.account.closed.length, journal: data.journal.length, plans: data.workspace.plans.length, reviews: data.workspace.reviews.length, alerts: data.workspace.alerts.length, indicatorAlerts: data.workspace.indicatorAlerts.length };
     },
     importBackup: (text: string) => {
       if (!locked) throw new Error("Close the other account tab before restoring a backup.");
