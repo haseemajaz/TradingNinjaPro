@@ -11,7 +11,30 @@ const BackupSchema = z.object({
   format: z.literal("TradingNinjaPro.local.v2"), mode: z.enum(["live", "demo"]), savedAt: z.string().datetime(),
   account: z.unknown(), workspace: WorkspaceSchema, journal: JOURNAL_SCHEMA,
 });
+/** Bound untrusted backup trees before Zod traverses constrained collections. */
+export function preflightBackup(input: unknown): void {
+  const pending: { value: unknown; depth: number }[] = [{ value: input, depth: 0 }];
+  let visited = 0;
+  const seen = new WeakSet<object>();
+  while (pending.length) {
+    const { value, depth } = pending.pop()!;
+    if (++visited > 500_000 || depth > 32) throw new Error("Backup structure is too large or deeply nested.");
+    if (typeof value === "string" && value.length > 20_000) throw new Error("Backup text is too large.");
+    if (!value || typeof value !== "object") continue;
+    if (seen.has(value)) throw new Error("Backup contains repeated or cyclic objects.");
+    seen.add(value);
+    if (Array.isArray(value)) {
+      if (value.length > 10_000 || pending.length + value.length > 500_000) throw new Error("Backup collection is too large.");
+      for (const item of value) pending.push({ value: item, depth: depth + 1 });
+    } else {
+      const keys = Object.keys(value);
+      if (keys.length > 100) throw new Error("Backup object has too many fields.");
+      for (const key of keys) pending.push({ value: (value as Record<string, unknown>)[key], depth: depth + 1 });
+    }
+  }
+}
 export function parseBackup(input: unknown, mode: Mode) {
+  preflightBackup(input);
   const backup = BackupSchema.parse(input);
   if (backup.mode !== mode) throw new Error(`This is a ${backup.mode} backup. Switch to that data mode before restoring.`);
   const account = engine.parsePaperSnapshot(backup.account);
@@ -56,6 +79,11 @@ function initializeSession(mode: Mode) {
     getState: () => current,
     updateWorkspace: (next: Workspace) => { workspace = WorkspaceSchema.parse(next); update(); flush(); },
     exportBackup: () => JSON.stringify(parseBackup(bundle(), mode), null, 2),
+    inspectBackup: (text: string) => {
+      if (text.length > MAX_BACKUP_BYTES) throw new Error("Backup exceeds the 4 MB limit.");
+      const data = parseBackup(JSON.parse(text) as unknown, mode);
+      return { mode: data.mode, savedAt: data.savedAt, balance: data.account.account.balance, positions: data.account.positions.length, orders: data.account.orders.length, closed: data.account.closed.length, journal: data.journal.length, plans: data.workspace.plans.length, reviews: data.workspace.reviews.length, alerts: data.workspace.alerts.length };
+    },
     importBackup: (text: string) => {
       if (!locked) throw new Error("Close the other account tab before restoring a backup.");
       if (text.length > MAX_BACKUP_BYTES) throw new Error("Backup exceeds the 4 MB limit.");

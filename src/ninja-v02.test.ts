@@ -70,3 +70,14 @@ describe("backup and workspace validation", () => {
     expect(PlanSchema.safeParse({ ...plan, asset: "UNKNOWN" }).success).toBe(false);
   });
 });
+
+describe("untrusted backup preflight", () => {
+  it("rejects oversized nested collections before schema validation", () => {
+    const data = { ...backup(), journal: Array.from({ length: 10001 }, () => null) };
+    expect(() => parseBackup(data, "live")).toThrow(/collection is too large/);
+  });
+  it("rejects excessively nested data before recursive validation", () => {
+    let deep: unknown = null; for (let i = 0; i < 40; i++) deep = { child: deep };
+    expect(() => parseBackup({ ...backup(), unknown: deep }, "live")).toThrow(/deeply nested/);
+  });
+});

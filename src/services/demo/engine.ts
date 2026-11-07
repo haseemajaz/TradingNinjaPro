@@ -532,6 +532,13 @@ export function placeOrder(input: PlaceOrderArgs): Order {
   if (limit != null && (side === "BUY" ? market <= limit : market >= limit)) {
     // Marketable on arrival — fill straight away at the better of the two.
     const fillPrice = side === "BUY" ? Math.min(market, limit) : Math.max(market, limit);
+    const required = marginFor(symbol.name, qty, fillPrice);
+    if (required > account.freeMargin) {
+      order.status = "REJECTED";
+      order.updatedAt = new Date().toISOString();
+      publishOrder("OrderRejected", order);
+      throw new EngineError("INSUFFICIENT_MARGIN", `Order needs ${required.toFixed(2)} margin, only ${account.freeMargin.toFixed(2)} free`);
+    }
     fillOrder(order, fillPrice);
     settle();
   }
@@ -629,6 +636,8 @@ function fillTriggered(symbolName: string, price: number): boolean {
           : Math.max(price, order.price)
         : price;
     fillOrder(order, fillPrice);
+    // Reserve the new position's margin before evaluating the next order.
+    recomputeEquity();
     filledAny = true;
   }
   return filledAny;
@@ -654,6 +663,8 @@ function stopExit(pos: Position, price: number): number | null {
 export function mark(symbol: string, price: number): void {
   if (!Number.isFinite(price) || price <= 0) return;
   lastPrice.set(symbol, price);
+  // Evaluate pending-order margin against current marked positions.
+  recomputeEquity();
 
   let changed = fillTriggered(symbol, price);
 

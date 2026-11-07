@@ -5,13 +5,17 @@ An independent, self-hosted charting and practice workspace built on [OpenCharts
 ## What's new
 
 - **Research dashboard:** up to eight named watchlists, instrument search, favourites and direct navigation to market workspaces.
-- **Multi-chart desk:** saved one-, two- or four-chart layouts using opt-in TradingView embeds. Charts are independent, not synchronised, and display-only.
+- **Multi-chart desk:** saved one-, two- or four-chart layouts using opt-in TradingView embeds. Shared symbol selectors and a common initial timeframe are available. Cursors and timeframe changes inside widgets do not sync; embeds are display-only.
 - **Local practice accounts:** stable account IDs, saved balances, positions, pending orders, fills and closed history. Live and historical-demo accounts use separate saves.
 - **Durable local journal:** journal entries stay attached to the saved account across reloads.
 - **Validated backup/restore:** account, journal, watchlists, chart selections and strategy plans in a versioned JSON backup. Invalid or wrong-mode imports are rejected before account replacement.
 - **Cross-tab protection:** Web Locks allow one writer per origin and data mode. A second tab is blocked from opening that practice account. Browsers without locking use an explicitly temporary session, without automatic shared saves.
-- **Manual strategy planner:** save indicator-rule checklists, timeframe, direction, planning risk/stop/target constraints, review confirmations and notes. Export plans as JSON. No rule execution, AI predictions or backtesting.
+- **Manual strategy planner:** save indicator-rule checklists, timeframe, direction, planning risk/stop/target constraints, review confirmations and notes. Export plans as JSON. The planner is manual; a separate historical backtester evaluates selected rules. No AI predictions or automatic execution.
 - **Crypto technical snapshot:** a manual scan of six pairs using completed 15-minute, 1-hour, 4-hour or daily candles, RSI 14 and SMA 20. Saved filters, RSI thresholds and sorting help explore results; provider errors stay visible. At least one minute between scans. Historical demo candle timestamps are shifted. Not a trading recommendation or backtest.
+- **Performance and reviews:** realised P&L, close-record win rate, realised-only drawdown and a reconstructed balance curve; partial closes count separately. Associate a closed record with a saved strategy snapshot and a manual checklist review.
+- **Crypto backtesting:** run saved crypto rules against up to 1,000 completed candles with configurable per-fill fee and slippage assumptions, next-bar entry, stop/target rules and conservative same-bar handling. Results do not change the paper account and are not predictions. Historical demo dates are shifted.
+- **In-session price alerts:** one-shot crypto midpoint thresholds, saved per data mode. Alerts only run while the app is open and receiving fresh ticks; no background delivery. They can trigger immediately or after reconnecting at a gap.
+- **Backup preview and safeguards:** validates and previews account counts before restore; size and tree limits reduce oversized-import risk. Backup includes reviews, price alerts and shared chart controls, but not chart drawings, themes, native chart preferences or third-party widget state.
 - Branded light/dark responsive UI, native risk calculator, closed-trade CSV export, explicit feed labels and stale-quote safeguards.
 
 ## Run, test and build
@@ -35,7 +39,7 @@ The default native crypto terminal uses public Binance market-data endpoints, wi
 
 `?mode=demo` selects a separate historical replay account, clearly marked **not live**. Switching modes does not merge accounts. Native chart-session replay controls are hidden in live mode so historical chart replay is not confused with current paper execution.
 
-Forex, precious metals and US stocks use third-party TradingView embeds. Data and delays depend on the selected provider/exchange; availability is not guaranteed. All multi-chart embeds—including crypto—are display-only, never a raw-price source for our order engine or scanner. Branding and attribution must remain visible. Review provider commercial-display terms and your privacy/cookie policy before production launch.
+Forex, precious metals and US stocks use third-party TradingView embeds. Data and delays depend on the selected provider/exchange; availability is not guaranteed. All multi-chart embeds—including crypto—are display-only, never a raw-price source for our order engine, scanner or backtester. Shared symbol selectors and initial-timeframe controls do not synchronize internal widget actions. Branding and attribution must remain visible. Review provider commercial-display terms and your privacy/cookie policy before production launch.
 
 ## Storage, backups and risk limitations
 
@@ -45,7 +49,7 @@ Forex, precious metals and US stocks use third-party TradingView embeds. Data an
 - Backup imports are capped at 4 MB. Account arrays and planner/list counts are bounded. Full or blocked browser storage is reported; export before history grows too large and reset financial history when needed.
 - Restored positions are initially marked at entry, and quotes are never restored. Fresh provider ticks are required. Stops and pending orders do not run while the browser is closed, suspended or disconnected. They may trigger at a gap when ticks resume; no offline fills are invented.
 - Local files are editable and not tamper-proof. Never use this account state as proof of trading performance or as a basis for payouts.
-- The planner is a manual checklist. Input bounds are not risk recommendations. No strategy is claimed profitable. No broker connection, automatic execution, AI service, fundamentals feed or full-market stock scanner is included.
+- The planner is a manual checklist; linked reviews are manual and attached after a close. The backtester is separate, crypto-only and uses fixed units, fee/slippage assumptions, no borrowing or funding costs, and no mark-to-market drawdown. Input bounds are not recommendations. No strategy is claimed profitable. No broker connection, automatic execution, background alerts, cloud sync, AI service, fundamentals feed or full-market stock scanner is included.
 
 ## Licensing
 

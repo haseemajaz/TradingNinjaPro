@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Download, LayoutGrid, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { MarketEmbed } from "./NinjaMarketChart.tsx";
+import { NinjaPerformance } from "./NinjaPerformance.tsx";
+import { NinjaBacktest } from "./NinjaBacktest.tsx";
+import { NinjaAlerts } from "./NinjaAlerts.tsx";
 import { ASSET_CATALOG, downloadText, type ScannerSettings, type Workspace } from "./ninja-workspace.ts";
 import type { LocalSession, LocalState } from "./ninja-session.ts";
 import type { OpenChartsAdapter } from "./adapter/types.ts";
@@ -18,7 +21,8 @@ export function BackupControls({ session, state }: { session: LocalSession; stat
     try {
       if (selected.size > 4_000_000) throw new Error("Backup exceeds 4 MB.");
       const text = await selected.text();
-      if (!window.confirm("Replace this data mode’s saved practice account, journal, watchlists and strategy plans with this backup? Export a current backup first. Other data modes are not changed.")) return;
+      const preview = session.inspectBackup(text);
+      if (!window.confirm(`Restore ${preview.mode} backup saved ${preview.savedAt}?\nBalance: ${preview.balance.toLocaleString(undefined, { style: "currency", currency: "USD" })}\n${preview.positions} positions, ${preview.orders} order records, ${preview.closed} closes, ${preview.journal} journal entries, ${preview.plans} plans, ${preview.reviews} reviews and ${preview.alerts} alerts.\n\nThis replaces this mode’s saved account and workspace. Export a current backup first. Other modes are not changed; chart drawings and theme are excluded.`)) return;
       session.importBackup(text); window.location.reload();
     } catch (e) { setMessage(e instanceof Error ? e.message : "Backup could not be restored."); }
     finally { input.value = ""; }
@@ -28,7 +32,7 @@ export function BackupControls({ session, state }: { session: LocalSession; stat
     <button disabled={state.status === "busy"} onClick={() => file.current?.click()}><Upload size={16} /> Restore</button>
     <input ref={file} type="file" accept=".json,application/json" aria-label="Restore local account backup" onChange={(e) => { void restore(e.currentTarget); }} hidden />
     <button disabled={state.status === "busy"} onClick={() => { if (window.confirm("Reset this mode’s financial practice account to $100,000 and remove all positions, orders, fills and closed history? Watchlists, plans and journal notes remain.")) { try { session.resetAccount(); window.location.reload(); } catch (e) { setMessage(e instanceof Error ? e.message : "Reset failed."); } } }}>Reset practice account</button>
-  </div><p>Backup contains this mode’s account, journal, watchlists, chart selections and plans. It excludes chart drawings, theme and third-party widget preferences. No cloud sync.</p>{message && <p role="status">{message}</p>}</div>;
+  </div><p>Backup contains this mode’s account, journal, watchlists, chart selections, plans, reviews and alerts. It excludes chart drawings, theme and third-party widget preferences. No cloud sync.</p>{message && <p role="status">{message}</p>}</div>;
 }
 
 type ScanRow = { id: string; close?: number; rsi?: number; trend?: string; barTime?: number; error?: string };
@@ -53,7 +57,7 @@ export function CryptoScanner({ adapter, demo, onOpen, settings, onSettings }: {
           const closed = data.filter((c) => (c.time + interval) * 1000 <= cutoff);
           if (closed.length < 30) throw new Error("Not enough completed candles.");
           const last = closed.at(-1)!; const mean = sma(closed, 20).at(-1)?.value; const strength = rsi(closed, 14).at(-1)?.value;
-          return { id: a.id, close: last.close, rsi: strength, trend: mean == null ? "Unavailable" : last.close >= mean ? "Above SMA 20" : "Below SMA 20", barTime: last.time };
+          return { id: a.id, close: last.close, rsi: strength, trend: mean == null ? "Unavailable" : last.close > mean ? "Above SMA 20" : last.close < mean ? "Below SMA 20" : "At SMA 20", barTime: last.time };
         } catch { return { id: a.id, error: "Unavailable — provider access, rate limits or history" }; }
       }));
       setRows(result); setScanInfo({ time: Date.now(), timeframe });
@@ -91,7 +95,7 @@ export function NinjaDashboard({ session, state, dark, adapter, demo, health, on
   const [assetToAdd, setAssetToAdd] = useState<string>("BTCUSD");
   const [error, setError] = useState("");
   useEffect(() => { const t = setInterval(() => { setSnapshot(engine.exportPaperSnapshot()); setNow(Date.now()); }, 1500); return () => clearInterval(t); }, []);
-  const update = (next: Workspace) => { try { session.updateWorkspace(next); setError(""); } catch { setError("Workspace could not be saved. Check list names and the storage status."); } };
+  const update = (next: Workspace) => { try { session.updateWorkspace(next); setError(""); return true; } catch { setError("Workspace could not be saved. Check list names and the storage status."); return false; } };
   const addList = () => {
     if (!newList.trim()) return;
     if (w.lists.length >= 8) { setError("Up to eight watchlists can be saved."); return; }
@@ -113,9 +117,12 @@ export function NinjaDashboard({ session, state, dark, adapter, demo, health, on
       })}</tbody></table></div>
       {!matches.length && <div className="tnp-empty">No instruments found. Add a market above or clear the search.</div>}
     </section>
-    <section className="tnp-panel" aria-labelledby="multi-title"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">CONTEXT, SIDE BY SIDE</span><h2 id="multi-title">Multi-chart desk</h2></div><label>Chart layout<select value={w.chartCount} onChange={(e) => update({ ...w, chartCount: Number(e.target.value) as 1 | 2 | 4 })}><option value={1}>Single chart</option><option value={2}>Two charts</option><option value={4}>Four charts</option></select></label></div><p>Independent TradingView embeds; cursors and timeframes are not synchronised. These charts are display-only—even for crypto—and are separate from native paper execution. Each chart requires an external-content opt-in.</p>
-      <div className={`tnp-chart-grid tnp-charts-${w.chartCount}`}>{w.chartAssets.slice(0, w.chartCount).map((id, i) => { const a = ASSET_CATALOG.find((asset) => asset.id === id)!; return <section className="tnp-grid-chart" key={i}><label>Chart {i + 1}<select value={id} onChange={(e) => update({ ...w, chartAssets: w.chartAssets.map((old, j) => j === i ? e.target.value : old) })}>{ASSET_CATALOG.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label><div className="tnp-chart-card"><MarketEmbed symbol={a.chart} dark={dark} /></div></section>; })}</div>
+    <section className="tnp-panel" aria-labelledby="multi-title"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">CONTEXT, SIDE BY SIDE</span><h2 id="multi-title">Multi-chart desk</h2></div><label>Chart layout<select value={w.chartCount} onChange={(e) => update({ ...w, chartCount: Number(e.target.value) as 1 | 2 | 4 })}><option value={1}>Single chart</option><option value={2}>Two charts</option><option value={4}>Four charts</option></select></label></div><p>Shared controls apply symbols and an initial timeframe to these TradingView embeds. Timeframe or cursor changes made inside a widget are not synchronized. Charts are display-only, separate from paper execution, and require external-content opt-in.</p><div className="tnp-inline-actions"><label className="tnp-checkbox"><input type="checkbox" checked={w.linkChartSymbols} onChange={(e) => update({ ...w, linkChartSymbols: e.target.checked, chartAssets: e.target.checked ? w.chartAssets.map(() => w.chartAssets[0]!) : w.chartAssets })} />Link chart symbol selectors</label><label>Apply timeframe to all<select value={w.chartInterval} onChange={(e) => update({ ...w, chartInterval: e.target.value as Workspace["chartInterval"] })}><option value="15">15 minutes</option><option value="60">1 hour</option><option value="240">4 hours</option><option value="D">1 day</option></select></label></div>
+      <div className={`tnp-chart-grid tnp-charts-${w.chartCount}`}>{w.chartAssets.slice(0, w.chartCount).map((id, i) => { const a = ASSET_CATALOG.find((asset) => asset.id === id)!; return <section className="tnp-grid-chart" key={i}><label>Chart {i + 1}<select value={id} onChange={(e) => update({ ...w, chartAssets: w.chartAssets.map((old, j) => w.linkChartSymbols || j === i ? e.target.value : old) })}>{ASSET_CATALOG.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label><div className="tnp-chart-card"><MarketEmbed symbol={a.chart} dark={dark} interval={w.chartInterval} allowSymbolChange={!w.linkChartSymbols} /></div></section>; })}</div>
     </section>
+    <NinjaPerformance records={snapshot.closed} balance={snapshot.account.balance} workspace={w} onUpdate={update} />
+    <NinjaBacktest plans={w.plans} adapter={adapter} demo={demo} />
+    <NinjaAlerts workspace={w} onUpdate={update} demo={demo} />
     <CryptoScanner adapter={adapter} demo={demo} onOpen={onOpen} settings={w.scanner} onSettings={(scanner) => update({ ...w, scanner })} />
     <section className="tnp-panel"><div className="tnp-section-heading"><div><span className="tnp-eyebrow">YOUR DATA, YOUR DEVICE</span><h2>Local account & backups</h2></div><LayoutGrid size={24} /></div><p role="status">{state.message}{state.savedAt ? ` · last saved ${new Date(state.savedAt).toLocaleTimeString()}` : ""}. Live and historical-demo accounts are separate. Clearing site data removes local saves. Browser-origin changes do not migrate data: export before moving from this preview to 20i.</p><BackupControls session={session} state={state} /></section>
   </div>;

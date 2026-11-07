@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, CandlestickChart } from "lucide-react";
 
-export function MarketEmbed({ symbol, dark }: { symbol: string; dark: boolean }) {
+export function MarketEmbed({ symbol, dark, interval = "60", allowSymbolChange = true }: { symbol: string; dark: boolean; interval?: string; allowSymbolChange?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const [consent, setConsent] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState("Loading external chart…");
   useEffect(() => {
     if (!consent || !host.current) return;
+    setStatus("Loading external chart…");
     const node = host.current;
     const container = document.createElement("div");
     container.className = "tradingview-widget-container";
@@ -21,8 +22,8 @@ export function MarketEmbed({ symbol, dark }: { symbol: string; dark: boolean })
     script.async = true;
     script.type = "text/javascript";
     script.textContent = JSON.stringify({
-      autosize: true, symbol, interval: "60", timezone: "Etc/UTC", theme: dark ? "dark" : "light",
-      style: "1", locale: "en", allow_symbol_change: true, hide_side_toolbar: false,
+      autosize: true, symbol, interval, timezone: "Etc/UTC", theme: dark ? "dark" : "light",
+      style: "1", locale: "en", allow_symbol_change: allowSymbolChange, hide_side_toolbar: false,
       calendar: false, support_host: "https://www.tradingview.com",
     });
     script.onerror = () => setStatus("Chart could not load. Check your connection or content blocker, then retry.");
@@ -35,7 +36,7 @@ export function MarketEmbed({ symbol, dark }: { symbol: string; dark: boolean })
       if (!node.querySelector("iframe")) setStatus("The external chart is taking longer than expected. Retry or open it on TradingView.");
     }, 15_000);
     return () => { clearTimeout(timer); observer.disconnect(); node.replaceChildren(); };
-  }, [symbol, dark, consent, attempt]);
+  }, [symbol, dark, consent, attempt, interval, allowSymbolChange]);
   return <>
     <div className="tnp-embed-status"><span role="status">{consent ? status : "External chart not loaded"}</span>
       {consent && <button onClick={() => { setStatus("Reloading external chart…"); setAttempt((n) => n + 1); }}>Retry chart</button>}
