@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { QueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, CandlestickChart, Check, ChevronDown, CircleHelp, Download, Moon, ShieldCheck, Sun, X } from "lucide-react";
+import { ArrowUpRight, CandlestickChart, Check, ChevronDown, CircleHelp, Download, Moon, ShieldCheck, Sun } from "lucide-react";
 import { createDemoAdapter } from "./adapter/demo.ts";
 import { OpenChartsProvider } from "./adapter/provider.tsx";
 import { Terminal } from "./terminal/Terminal.tsx";
@@ -9,6 +9,7 @@ import { createNinjaLiveAdapter, type FeedHealth } from "./ninja-live.ts";
 import * as engine from "./services/demo/engine.ts";
 import { MarketEmbed } from "./NinjaMarketChart.tsx";
 import { NinjaDashboard, BackupControls } from "./NinjaDashboard.tsx";
+import { NinjaRiskCalculator } from "./NinjaRiskCalculator.tsx";
 import { NinjaPlanner } from "./NinjaPlanner.tsx";
 import { usePriceAlerts } from "./ninja-alerts.ts";
 import { useIndicatorAlerts } from "./ninja-indicator-alerts.ts";
@@ -43,27 +44,6 @@ function downloadTrades() {
   link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-
-function RiskCalculator({ close }: { close: () => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [balance, setBalance] = useState("10000");
-  const [risk, setRisk] = useState("1");
-  const [entry, setEntry] = useState("100");
-  const [stop, setStop] = useState("98");
-  const amount = Number(balance) * Number(risk) / 100;
-  const distance = Math.abs(Number(entry) - Number(stop));
-  const valid = [balance, risk, entry, stop].every((v) => v.trim() !== "" && Number.isFinite(Number(v)) && Number(v) > 0) && Number(risk) <= 100 && distance > 0 && Number.isFinite(amount / distance);
-  useEffect(() => { dialog.current?.showModal(); }, []);
-  return <dialog className="tnp-dialog" ref={dialog} onCancel={close} onClose={close} aria-labelledby="risk-title">
-    <div className="tnp-dialog-heading"><h2 id="risk-title">Plan your risk</h2><button aria-label="Close risk calculator" onClick={close}><X /></button></div>
-    <p>Estimate units for a linear instrument. Account currency must match the quote currency.</p>
-    <div className="tnp-risk-fields">{([
-      ["Account balance", balance, setBalance], ["Risk per trade (%)", risk, setRisk], ["Entry price", entry, setEntry], ["Stop price", stop, setStop],
-    ] as const).map(([label, value, setter]) => <label key={label}>{label}<input type="number" min="0" step="any" value={value} onChange={(e) => setter(e.target.value)} /></label>)}</div>
-    <div className="tnp-risk-result" aria-live="polite">{valid ? <><span>Maximum planned risk <b>{amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></span><span>Estimated units <b>{(amount / distance).toLocaleString(undefined, { maximumFractionDigits: 6 })}</b></span></> : <p>Enter positive values, risk of 100% or less, and different entry and stop prices.</p>}</div>
-    <p className="tnp-fine">Not a forex lot calculator. Excludes fees, spread, leverage, slippage and gaps. A stop order does not guarantee the planned loss.</p>
-  </dialog>;
-}
 
 export function TradingNinjaPro() {
   const [session, setSession] = useState<LocalSession | null>(null);
@@ -150,6 +130,6 @@ function NinjaApp({ session }: { session: LocalSession }) {
       </>}
     </main>
     <footer className="tnp-footer"><span>Independent by design. Disciplined by practice. · v0.2</span><span>Built on <a href="https://github.com/dylanpersonguy/OpenCharts" target="_blank" rel="noreferrer">OpenCharts</a> · <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView Lightweight Charts™</a></span></footer>
-    {riskOpen && <RiskCalculator close={() => setRiskOpen(false)} />}
+    {riskOpen && <NinjaRiskCalculator close={() => setRiskOpen(false)} />}
   </div>;
 }
