@@ -33,7 +33,7 @@ Keep the previous deployment ZIP. Replace the new static files with that backup 
 
 ## Local account migration
 
-Saved practice accounts, journal, watchlists and plans belong to the browser origin. Export a JSON backup from the dashboard on the preview domain, then restore it in the matching live/demo mode on your 20i domain. Do not upload personal backups to GitHub or the website document root. Account backups exclude chart drawings and theme. Export and restore native crypto drawings separately for each pair; these are shared by both data modes. Close other app tabs before restoring. TradingView drawings and chart settings are not included.
+Saved practice accounts, journal, watchlists and plans belong to the browser origin. Export a JSON backup from the dashboard on the preview domain, then restore it in the matching live/demo mode on your 20i domain. Do not upload personal backups to GitHub or the website document root. Account backups exclude chart drawings and theme. Export and restore native crypto drawings separately for each pair; these are shared by both data modes. Close other app tabs before restoring. Native chart templates have a separate export and restore; disable template autosave first. TradingView drawings and current chart settings are not included.
 
 Use a current HTTPS browser with Web Locks for automatic saving and single-tab account protection. Confirm that a practice position and journal entry survive refresh. Open a second tab and verify that concurrent account writes are blocked.
 
