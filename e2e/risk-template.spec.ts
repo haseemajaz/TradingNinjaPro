@@ -1,0 +1,34 @@
+import { test, expect } from '@playwright/test';
+
+test('mobile risk scenario and native template restore', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/?mode=demo'); await expect(page.getByRole('heading', { name: 'Know your markets.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Risk calculator', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Plan your risk' });
+  await expect(dialog.getByText('Estimated units')).toContainText('50');
+  await dialog.getByLabel('Target price (optional)').fill('104');
+  await expect(dialog.getByText('Net reward / risk')).toContainText('2R');
+  await dialog.getByLabel('Fee per fill (bps)').fill('50');
+  await expect(dialog.getByText('Estimated units')).not.toContainText('50');
+  await dialog.getByLabel('Direction').selectOption('short');
+  await expect(dialog.getByText(/stop must be above/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await dialog.getByRole('button', { name: 'Close risk calculator' }).click();
+  const item = { id: 'test', name: 'Chart setup', layoutType: 'SINGLE', isDefault: false, panels: [{ version: 1, prefs: { showWicks: true }, indicators: ['RSI'], plugins: [] }], updatedAt: '2026-01-01T00:00:00.000Z' };
+  await page.evaluate((item) => { localStorage.setItem('oc_chart_templates', JSON.stringify([item])); localStorage.setItem('oc_drawings_BTCUSD', 'unaffected'); }, item);
+  const download = page.waitForEvent('download'); await page.getByRole('button', { name: 'Export templates' }).click();
+  const bytes = Buffer.concat(await (await (await download).createReadStream()).toArray()); const backup = JSON.parse(bytes.toString()); expect(backup.templates).toEqual([item]);
+  backup.templates[0].name = 'Restored setup'; const replacement = { name: 'templates.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) };
+  await page.evaluate(() => localStorage.setItem('trader_prefs:local-user', JSON.stringify({ chartTemplateAutosave: 'true' })));
+  page.once('dialog', (d) => d.accept()); await page.getByLabel('Restore native chart template backup').setInputFiles(replacement);
+  await expect(page.getByText(/Disable native chart template autosave before restoring/)).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('oc_chart_templates')!)[0].name)).toBe('Chart setup');
+  await page.evaluate(() => localStorage.setItem('trader_prefs:local-user', JSON.stringify({ chartTemplateAutosave: 'false' })));
+  page.once('dialog', (d) => d.dismiss()); await page.getByLabel('Restore native chart template backup').setInputFiles(replacement);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('oc_chart_templates')!)[0].name)).toBe('Chart setup');
+  page.once('dialog', (d) => d.accept()); await Promise.all([page.waitForEvent('load'), page.getByLabel('Restore native chart template backup').setInputFiles(replacement)]);
+  await expect(page.getByRole('heading', { name: 'Native chart template backups' })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('oc_chart_templates')!)[0].name)).toBe('Restored setup');
+  expect(await page.evaluate(() => localStorage.getItem('oc_drawings_BTCUSD'))).toBe('unaffected');
+  expect(errors).toEqual([]);
+});
